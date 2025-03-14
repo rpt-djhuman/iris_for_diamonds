@@ -225,7 +225,7 @@ class MainActivity(
                                     )
                                     Spacer(Modifier.padding(5.dp))
                                     Text(
-                                        text = "Iris",
+                                        text = "Iris for Diamonds",
                                         fontWeight = FontWeight(500),
                                         color = Color.White,
                                         fontSize = 30.sp
@@ -243,7 +243,7 @@ class MainActivity(
                                     modifier = Modifier.padding(start = 45.dp)
                                 ) {
                                     Text(
-                                        text = "NerveSparks",
+                                        text = "NerveSparks + RPT",
                                         color = Color(0xFF636466),
                                         fontSize = 16.sp
                                     )

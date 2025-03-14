@@ -1,0 +1,140 @@
+{
+  "name": "Medieval Interaction Opening Line Generator",
+  "version": "1.0.0",
+  "description": "This template generates an appropriate opening line for an NPC in a medieval setting interacting with a player character.",
+  "input": [
+    {
+      "name": "region",
+      "description": "The region where the interaction takes place",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "France.Paris",
+        "France.Brittany",
+        "France.Eguisheim",
+        "England.London",
+        "England.Swinklov",
+        "England.Smallville"
+      ]
+    },
+    {
+      "name": "weather",
+      "description": "The current weather in the region",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "good",
+        "bad",
+        "normal"
+      ]
+    },
+    {
+      "name": "time_of_day",
+      "description": "The time of day during the interaction",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "morning",
+        "afternoon",
+        "evening",
+        "night"
+      ]
+    },
+    {
+      "name": "npc_profession",
+      "description": "The profession of the NPC",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "priest",
+        "smith",
+        "soldier",
+        "highborn",
+        "beggar",
+        "slave",
+        "data scientist"
+      ]
+    },
+    {
+      "name": "player_name",
+      "description": "The name of the player character",
+      "type": "string",
+      "min": 1,
+      "max": 100
+    },
+    {
+      "name": "player_age",
+      "description": "The age group of the player character",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "young",
+        "middle-aged",
+        "old"
+      ]
+    },
+    {
+      "name": "player_relation",
+      "description": "The NPC's stance towards the player",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "HOSTILE",
+        "NEUTRAL",
+        "FRIENDLY"
+      ]
+    },
+    {
+      "name": "scenario",
+      "description": "The current scenario affecting the NPC and player",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "bypasser",
+        "attacker",
+        "savior"
+      ]
+    },
+    {
+      "name": "dialogue_history",
+      "description": "how many times in the past the NPC has met the player",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "meet for the first time. I don't know their name",
+        "meet for the second time",
+        "have met many times in the past"
+      ]
+    },
+    {
+      "name": "area_situation",
+      "description": "Situation in the area during the interaction",
+      "type": "categorical",
+      "min": 1,
+      "max": 1,
+      "options": [
+        "normal situation in the area",
+        "worrying situation in the area",
+        "panic situation in the area (it's the apocalypse, save your souls!!!!)"
+      ]
+    }
+  ],
+  "output": [
+    {
+      "name": "opening_line",
+      "description": "The NPC's opening line addressing the player",
+      "type": "string",
+      "min": 0,
+      "max": 100
+    }
+  ],
+  "prompt": "In the medieval setting of {region}, a {time_of_day} with {weather} weather, I, a {npc_profession}, come across {player_name}, a {player_age} {scenario}.  I am {player_relation} towards {player_name}, and we are currently in a {area_situation}. We {dialogue_history}. Considering this context and my profession, my {player_relation} attitude towards the {scenario}, and the current situation in the area, my opening line to {player_name} should be: "
+}

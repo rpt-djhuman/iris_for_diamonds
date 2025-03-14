@@ -9,4 +9,6 @@
     <string name="about_screen_title">About</string>
     <string name="benchmark_screen_title">BenchMark</string>
     <string name="refresh_button">Refresh</string>
+    <string name="template_selection_title">Choose Chat Mode</string>
+    <string name="template_chat_title">Template Chat</string>
 </resources>

@@ -1,0 +1,41 @@
+{
+  "name": "Customer Support Request",
+  "version": "1.0.0",
+  "description": "Template for handling customer support inquiries",
+  "input": [
+    {
+      "name": "customer_name",
+      "description": "Customer's full name",
+      "type": "string",
+      "min": 2,
+      "max": 50
+    },
+    {
+      "name": "issue_type",
+      "description": "Type of issue being reported",
+      "type": "categorical",
+      "options": ["Technical Problem", "Billing Issue", "Account Access", "Product Question", "Other"]
+    },
+    {
+      "name": "issue_description",
+      "description": "Detailed description of the issue",
+      "type": "string",
+      "min": 10,
+      "max": 500
+    },
+    {
+      "name": "urgency_level",
+      "description": "How urgent is this issue?",
+      "type": "categorical",
+      "options": ["Low", "Medium", "High", "Critical"]
+    }
+  ],
+  "output": [
+    {
+      "name": "response",
+      "description": "Support response",
+      "type": "string"
+    }
+  ],
+  "prompt": "You are a customer support specialist. Please provide a helpful response to the following customer inquiry:\n\nCustomer: {{customer_name}}\nIssue Type: {{issue_type}}\nUrgency: {{urgency_level}}\nDescription: {{issue_description}}\n\nPlease provide a professional, empathetic response that addresses the customer's concerns and offers next steps."
+}

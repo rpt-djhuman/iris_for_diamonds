@@ -60,6 +60,9 @@ import com.nervesparks.iris.ui.ModelsScreen
 import com.nervesparks.iris.ui.ParametersScreen
 import com.nervesparks.iris.ui.SearchResultScreen
 import com.nervesparks.iris.ui.SettingsScreen
+import com.nervesparks.iris.ui.TemplateSelectionScreen
+import com.nervesparks.iris.ui.TemplateChatScreen
+
 import java.io.File
 
 
@@ -71,8 +74,9 @@ enum class ChatScreen(@StringRes val title: Int) {
     ParamsScreen(title = R.string.parameters_screen_title),
     AboutScreen(title = R.string.about_screen_title),
     BenchMarkScreen(title = R.string.benchmark_screen_title),
+    TemplateSelection(title = R.string.template_selection_title),
+    TemplateChat(title = R.string.template_chat_title),
 }
-
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -261,11 +265,37 @@ fun ChatScreen(
         ) { innerPadding ->
             NavHost(
                 navController = navController,
-                startDestination = ChatScreen.Start.name,
+                startDestination = ChatScreen.TemplateSelection.name,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
             ) {
+                composable(route = ChatScreen.TemplateSelection.name) {
+                    TemplateSelectionScreen(
+                        onStandardChatSelected = {
+                            navController.navigate(ChatScreen.Start.name)
+                        },
+                        onTemplateChatSelected = { template ->
+                            viewModel.setCurrentTemplate(template)
+                            navController.navigate(ChatScreen.TemplateChat.name)
+                        },
+                        viewModel = viewModel
+                    )
+                }
+
+                composable(route = ChatScreen.TemplateChat.name) {
+                    val template = viewModel.currentTemplate.value
+                    if (template != null) {
+                        TemplateChatScreen(
+                            template = template,
+                            viewModel = viewModel,
+                            onBackPressed = {
+                                navController.navigateUp()
+                            }
+                            // Remove the onSubmitSuccess parameter since we no longer need it
+                        )
+                    }
+                }
                 composable(route = ChatScreen.Start.name) {
                     MainChatScreen(
                         onNextButtonClicked = {

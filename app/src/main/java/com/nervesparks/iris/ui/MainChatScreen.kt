@@ -131,7 +131,7 @@ fun MainChatScreen (
     models: List<Downloadable>,
     extFileDir: File?,
 
-){
+    ){
     val kc = LocalSoftwareKeyboardController.current
     val windowInsets = WindowInsets.ime
     val focusManager = LocalFocusManager.current
@@ -185,281 +185,281 @@ fun MainChatScreen (
 
 
 
-            // Screen content
-            Column() {
+        // Screen content
+        Column() {
 
 
-                // Show modal if required
-                if (viewModel.showModal) {
-                    // Modal dialog to show download options
-                    DownloadModal(viewModel = viewModel, dm = dm, models = models)
+            // Show modal if required
+            if (viewModel.showModal) {
+                // Modal dialog to show download options
+                DownloadModal(viewModel = viewModel, dm = dm, models = models)
 
-                }
+            }
 
-                if (viewModel.showAlert) {
-                    // Modal dialog to show download options
-                    LoadingModal(viewModel)
-                }
+            if (viewModel.showAlert) {
+                // Modal dialog to show download options
+                LoadingModal(viewModel)
+            }
 
-                Column {
-
-
-                    val scrollState = rememberLazyListState()
+            Column {
 
 
-                    Box(modifier = Modifier
-                        .weight(1f)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = {
-                                    kc?.hide()
-                                },
-                                onDoubleTap = { kc?.hide() },
-                                onLongPress = { kc?.hide() },
-                                onPress = { kc?.hide() },
+                val scrollState = rememberLazyListState()
 
 
-                                )
-                        }) {
+                Box(modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(Unit) {
+                        detectTapGestures(
+                            onTap = {
+                                kc?.hide()
+                            },
+                            onDoubleTap = { kc?.hide() },
+                            onLongPress = { kc?.hide() },
+                            onPress = { kc?.hide() },
 
-                        if (viewModel.messages.isEmpty() && !viewModel.showModal && !viewModel.showAlert) {
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxSize() // Take up the whole screen
-                                    .wrapContentHeight(Alignment.CenterVertically),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
+
+                            )
+                    }) {
+
+                    if (viewModel.messages.isEmpty() && !viewModel.showModal && !viewModel.showAlert) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize() // Take up the whole screen
+                                .wrapContentHeight(Alignment.CenterVertically),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 2.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
 //                                item { Spacer(Modifier.height(55.dp).fillMaxWidth()) }
-                                // Header Text
-                                item {
-                                    Text(
-                                        text = "Hello, Ask me " + "Anything",
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = Color.White,
-                                            fontWeight = FontWeight.W300,
-                                            letterSpacing = 1.sp,
-                                            fontSize = 50.sp,
-                                            lineHeight = 60.sp
-                                        ),
-                                        fontFamily = FontFamily.SansSerif,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(16.dp)
-                                            .wrapContentHeight()
-                                    )
-                                }
+                            // Header Text
+                            item {
+                                Text(
+                                    text = "Hello, Ask me " + "Anything",
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color.White,
+                                        fontWeight = FontWeight.W300,
+                                        letterSpacing = 1.sp,
+                                        fontSize = 50.sp,
+                                        lineHeight = 60.sp
+                                    ),
+                                    fontFamily = FontFamily.SansSerif,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp)
+                                        .wrapContentHeight()
+                                )
+                            }
 
-                                // Items for Prompts_Home
-                                items(Prompts_Home.size) { index ->
-                                    Box(
-                                        contentAlignment = Alignment.Center,
+                            // Items for Prompts_Home
+                            items(Prompts_Home.size) { index ->
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(60.dp)
+                                        .padding(8.dp)
+                                        .background(
+                                            Color(0xFF010825),
+                                            shape = RoundedCornerShape(20.dp)
+                                        )
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .height(60.dp)
-                                            .padding(8.dp)
-                                            .background(
-                                                Color(0xFF010825),
-                                                shape = RoundedCornerShape(20.dp)
-                                            )
+                                            .padding(horizontal = 8.dp)
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
+                                        // Circle Icon
+                                        Box(
                                             modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(horizontal = 8.dp)
+                                                .size(20.dp) // Icon size
+                                                .background(Color.White, shape = CircleShape)
+                                                .padding(4.dp),
+                                            contentAlignment = Alignment.Center
                                         ) {
-                                            // Circle Icon
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(20.dp) // Icon size
-                                                    .background(Color.White, shape = CircleShape)
-                                                    .padding(4.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.info_svgrepo_com),
-                                                    contentDescription = null,
-                                                    tint = Color.Black
-                                                )
-                                            }
-
-                                            Spacer(modifier = Modifier.width(12.dp))
-
-                                            // Text
-                                            Text(
-                                                text = Prompts_Home.getOrNull(index) ?: "",
-                                                style = MaterialTheme.typography.bodySmall.copy(color = Color.White),
-                                                textAlign = TextAlign.Start, // Left align the text
-                                                fontSize = 12.sp,
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .padding(horizontal = 8.dp)
+                                            Icon(
+                                                painter = painterResource(id = R.drawable.info_svgrepo_com),
+                                                contentDescription = null,
+                                                tint = Color.Black
                                             )
                                         }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        // Text
+                                        Text(
+                                            text = Prompts_Home.getOrNull(index) ?: "",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = Color.White),
+                                            textAlign = TextAlign.Start, // Left align the text
+                                            fontSize = 12.sp,
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .padding(horizontal = 8.dp)
+                                        )
                                     }
-                                }
-
-                                item{
-
                                 }
                             }
+
+                            item{
+
+                            }
                         }
-                        else {
+                    }
+                    else {
 
-                            LazyColumn(state = scrollState) {
-                                // Track the first user and assistant messages
+                        LazyColumn(state = scrollState) {
+                            // Track the first user and assistant messages
 
-                                var length = viewModel.messages.size
+                            var length = viewModel.messages.size
 
-                                itemsIndexed(viewModel.messages.slice(3..< length) as? List<Map<String, String>> ?: emptyList()) { index, messageMap ->
-                                    val role = messageMap["role"] ?: ""
-                                    val content = messageMap["content"] ?: ""
-                                    val trimmedMessage = if (content.endsWith("\n")) {
-                                        content.substring(startIndex = 0, endIndex = content.length - 1)
-                                    } else {
-                                        content
-                                    }
+                            itemsIndexed(viewModel.messages.slice(3..< length) as? List<Map<String, String>> ?: emptyList()) { index, messageMap ->
+                                val role = messageMap["role"] ?: ""
+                                val content = messageMap["content"] ?: ""
+                                val trimmedMessage = if (content.endsWith("\n")) {
+                                    content.substring(startIndex = 0, endIndex = content.length - 1)
+                                } else {
+                                    content
+                                }
 
-                                    // Skip rendering first user and first assistant messages
+                                // Skip rendering first user and first assistant messages
 
-                                    if (role != "system") {
-                                        if (role != "codeBlock") {
-                                            Box {
-                                                val context = LocalContext.current
-                                                val interactionSource = remember { MutableInteractionSource() }
-                                                val sheetState = rememberModalBottomSheetState()
-                                                var isSheetOpen by rememberSaveable {
-                                                    mutableStateOf(false)
-                                                }
-                                                if(isSheetOpen){
-                                                    MessageBottomSheet(
-                                                        message = trimmedMessage,
-                                                        clipboard = clipboard,
-                                                        context = context,
-                                                        viewModel = viewModel,
-                                                        onDismiss = {
-                                                            isSheetOpen = false
-                                                            viewModel.toggler = false
-                                                        },
-                                                        sheetState = sheetState
-                                                    )
-                                                }
-                                                Row(
-                                                    horizontalArrangement = if (role == "user") Arrangement.End else Arrangement.Start,
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .padding(
-                                                            start = 8.dp,
-                                                            top = 8.dp,
-                                                            end = 8.dp,
-                                                            bottom = 0.dp
-                                                        ),
-                                                ) {
-                                                    if(role == "assistant") {
-                                                        Image(
-                                                            painter = painterResource(
-                                                                id = R.drawable.logo
-                                                            ),
-                                                            contentDescription =  "Bot Icon",
-                                                            modifier = Modifier.size(20.dp)
-                                                        )
-                                                    }
-                                                    Box(modifier = Modifier
-                                                        .padding(horizontal = 2.dp)
-                                                        .background(
-                                                            color = if (role == "user") Color(
-                                                                0xFF171E2C
-                                                            ) else Color.Transparent,
-                                                            shape = RoundedCornerShape(12.dp),
-                                                        )
-                                                        .combinedClickable(
-                                                            interactionSource = interactionSource,
-                                                            indication = ripple(color = Color.Gray),
-                                                            onLongClick = {
-                                                                if (viewModel.getIsSending()) {
-                                                                    Toast
-                                                                        .makeText(
-                                                                            context,
-                                                                            " Wait till generation is done! ",
-                                                                            Toast.LENGTH_SHORT
-                                                                        )
-                                                                        .show()
-                                                                } else {
-                                                                    isSheetOpen = true
-                                                                }
-                                                            },
-                                                            onClick = {
-                                                                kc?.hide()
-                                                            }
-                                                        )
-                                                    ) {
-                                                        Row(
-                                                            modifier = Modifier
-                                                                .padding(5.dp)
-                                                        ) {
-                                                            Box(
-                                                                modifier = Modifier
-                                                                    .widthIn(max = 300.dp)
-                                                                    .padding(3.dp)
-                                                            ){
-                                                                Text(
-                                                                    text = if (trimmedMessage.startsWith("```")) {
-                                                                        trimmedMessage.substring(3)
-                                                                    } else {
-                                                                        trimmedMessage
-                                                                    },
-                                                                    style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFA0A0A5)),
-                                                                    modifier = Modifier
-                                                                        .padding(start = 1.dp, end = 1.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                    if(role == "user") {
-                                                        Image(
-                                                            painter = painterResource(
-                                                                id = R.drawable.user_icon
-                                                            ),
-                                                            contentDescription = "Human Icon",
-                                                            modifier = Modifier.size(20.dp)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        } else {
+                                if (role != "system") {
+                                    if (role != "codeBlock") {
+                                        Box {
                                             val context = LocalContext.current
                                             val interactionSource = remember { MutableInteractionSource() }
                                             val sheetState = rememberModalBottomSheetState()
                                             var isSheetOpen by rememberSaveable {
                                                 mutableStateOf(false)
                                             }
-                                            // Code block rendering remains the same
-                                            Box(
+                                            if(isSheetOpen){
+                                                MessageBottomSheet(
+                                                    message = trimmedMessage,
+                                                    clipboard = clipboard,
+                                                    context = context,
+                                                    viewModel = viewModel,
+                                                    onDismiss = {
+                                                        isSheetOpen = false
+                                                        viewModel.toggler = false
+                                                    },
+                                                    sheetState = sheetState
+                                                )
+                                            }
+                                            Row(
+                                                horizontalArrangement = if (role == "user") Arrangement.End else Arrangement.Start,
                                                 modifier = Modifier
-                                                    .padding(horizontal = 10.dp, vertical = 4.dp)
-                                                    .background(
-                                                        Color.Black,
-                                                        shape = RoundedCornerShape(8.dp)
-                                                    )
                                                     .fillMaxWidth()
+                                                    .padding(
+                                                        start = 8.dp,
+                                                        top = 8.dp,
+                                                        end = 8.dp,
+                                                        bottom = 0.dp
+                                                    ),
                                             ) {
-                                                if(isSheetOpen){
-                                                    MessageBottomSheet(
-                                                        message = trimmedMessage,
-                                                        clipboard = clipboard,
-                                                        context = context,
-                                                        viewModel = viewModel,
-                                                        onDismiss = {
-                                                            isSheetOpen = false
-                                                            viewModel.toggler = false
-                                                        },
-                                                        sheetState = sheetState
+                                                if(role == "assistant") {
+                                                    Image(
+                                                        painter = painterResource(
+                                                            id = R.drawable.logo
+                                                        ),
+                                                        contentDescription =  "Bot Icon",
+                                                        modifier = Modifier.size(20.dp)
                                                     )
                                                 }
-                                                Column(modifier = Modifier.combinedClickable(
+                                                Box(modifier = Modifier
+                                                    .padding(horizontal = 2.dp)
+                                                    .background(
+                                                        color = if (role == "user") Color(
+                                                            0xFF171E2C
+                                                        ) else Color.Transparent,
+                                                        shape = RoundedCornerShape(12.dp),
+                                                    )
+                                                    .combinedClickable(
                                                         interactionSource = interactionSource,
+                                                        indication = ripple(color = Color.Gray),
+                                                        onLongClick = {
+                                                            if (viewModel.getIsSending()) {
+                                                                Toast
+                                                                    .makeText(
+                                                                        context,
+                                                                        " Wait till generation is done! ",
+                                                                        Toast.LENGTH_SHORT
+                                                                    )
+                                                                    .show()
+                                                            } else {
+                                                                isSheetOpen = true
+                                                            }
+                                                        },
+                                                        onClick = {
+                                                            kc?.hide()
+                                                        }
+                                                    )
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier
+                                                            .padding(5.dp)
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .widthIn(max = 300.dp)
+                                                                .padding(3.dp)
+                                                        ){
+                                                            Text(
+                                                                text = if (trimmedMessage.startsWith("```")) {
+                                                                    trimmedMessage.substring(3)
+                                                                } else {
+                                                                    trimmedMessage
+                                                                },
+                                                                style = MaterialTheme.typography.bodyLarge.copy(color = Color(0xFFA0A0A5)),
+                                                                modifier = Modifier
+                                                                    .padding(start = 1.dp, end = 1.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                if(role == "user") {
+                                                    Image(
+                                                        painter = painterResource(
+                                                            id = R.drawable.user_icon
+                                                        ),
+                                                        contentDescription = "Human Icon",
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        val context = LocalContext.current
+                                        val interactionSource = remember { MutableInteractionSource() }
+                                        val sheetState = rememberModalBottomSheetState()
+                                        var isSheetOpen by rememberSaveable {
+                                            mutableStateOf(false)
+                                        }
+                                        // Code block rendering remains the same
+                                        Box(
+                                            modifier = Modifier
+                                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                                .background(
+                                                    Color.Black,
+                                                    shape = RoundedCornerShape(8.dp)
+                                                )
+                                                .fillMaxWidth()
+                                        ) {
+                                            if(isSheetOpen){
+                                                MessageBottomSheet(
+                                                    message = trimmedMessage,
+                                                    clipboard = clipboard,
+                                                    context = context,
+                                                    viewModel = viewModel,
+                                                    onDismiss = {
+                                                        isSheetOpen = false
+                                                        viewModel.toggler = false
+                                                    },
+                                                    sheetState = sheetState
+                                                )
+                                            }
+                                            Column(modifier = Modifier.combinedClickable(
+                                                interactionSource = interactionSource,
                                                 indication = ripple(color = Color.LightGray),
                                                 onLongClick = {
                                                     if (viewModel.getIsSending()) {
@@ -477,245 +477,245 @@ fun MainChatScreen (
                                                 onClick = {
                                                     kc?.hide()
                                                 }
-                                                )) {
-                                                    Row(
-                                                        horizontalArrangement = Arrangement.End,
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(
-                                                                top = 8.dp,
-                                                                bottom = 8.dp,
-                                                                start = 6.dp,
-                                                                end = 6.dp
-                                                            )
-                                                    ) {
-                                                        // Previous content here
-                                                    }
-                                                    Text(
-                                                        text = if (trimmedMessage.startsWith("```")) {
-                                                            trimmedMessage.substring(3)
-                                                        } else {
-                                                            trimmedMessage
-                                                        },
-                                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                                            color = Color(0xFFA0A0A5)
-                                                        ),
-                                                        modifier = Modifier.padding(16.dp)
-                                                    )
+                                            )) {
+                                                Row(
+                                                    horizontalArrangement = Arrangement.End,
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(
+                                                            top = 8.dp,
+                                                            bottom = 8.dp,
+                                                            start = 6.dp,
+                                                            end = 6.dp
+                                                        )
+                                                ) {
+                                                    // Previous content here
                                                 }
+                                                Text(
+                                                    text = if (trimmedMessage.startsWith("```")) {
+                                                        trimmedMessage.substring(3)
+                                                    } else {
+                                                        trimmedMessage
+                                                    },
+                                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                                        color = Color(0xFFA0A0A5)
+                                                    ),
+                                                    modifier = Modifier.padding(16.dp)
+                                                )
                                             }
                                         }
                                     }
                                 }
-                                item {
-                                    Spacer(modifier = Modifier
-                                        .height(1.dp)
-                                        .fillMaxWidth())
-                                }
                             }
-
-                            ScrollToBottomButton(
-                                scrollState = scrollState,
-                                messages = viewModel.messages,
-                                viewModel = viewModel
-                            )
-
-                        }
-
-                        //chat section ends here
-                    }
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(4.dp), // Reduced space between cards
-                        contentPadding = PaddingValues(vertical = 8.dp)
-                    ) {
-                        items(Prompts.size) { index ->
-                            if(viewModel.messages.size <= 1){
-                                Card(
-                                    modifier = Modifier
-                                        .height(100.dp)
-                                        .clickable {
-                                            viewModel.updateMessage(Prompts[index])
-                                            focusRequester.requestFocus()
-                                        }
-                                        .padding(horizontal = 8.dp),
-                                    shape = MaterialTheme.shapes.medium,
-                                    colors = CardDefaults.cardColors(containerColor = Color(0xFF030815))
-                                ) {
-
-                                    Text(
-                                        text = Prompts[index],
-                                        style = MaterialTheme.typography.bodySmall.copy(
-                                            color = Color(0xFFA0A0A5),
-                                            fontSize = 12.sp,
-                                        ),
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier
-                                            .width(200.dp)
-                                            .height(100.dp)
-                                            .padding(horizontal = 15.dp, vertical = 12.dp)
-//                                                .align(Alignment.Center)
-                                    )
-
-                                }
+                            item {
+                                Spacer(modifier = Modifier
+                                    .height(1.dp)
+                                    .fillMaxWidth())
                             }
                         }
+
+                        ScrollToBottomButton(
+                            scrollState = scrollState,
+                            messages = viewModel.messages,
+                            viewModel = viewModel
+                        )
+
                     }
-                    //Prompt input field
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFF050B16))
 
-
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 5.dp, top = 8.dp, bottom = 12.dp, end = 5.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
-
+                    //chat section ends here
+                }
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp), // Reduced space between cards
+                    contentPadding = PaddingValues(vertical = 8.dp)
+                ) {
+                    items(Prompts.size) { index ->
+                        if(viewModel.messages.size <= 1){
+                            Card(
+                                modifier = Modifier
+                                    .height(100.dp)
+                                    .clickable {
+                                        viewModel.updateMessage(Prompts[index])
+                                        focusRequester.requestFocus()
+                                    }
+                                    .padding(horizontal = 8.dp),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF030815))
                             ) {
 
-
-                            IconButton(onClick = {
-                                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                    putExtra(
-                                        RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                        RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
-                                    )
-                                    putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
-                                }
-                                speechRecognizerLauncher.launch(intent)
-                                focusManager.clearFocus()
-
-                            }) {
-                                Icon(
-//                                imageVector = Icons.Default.Send,
+                                Text(
+                                    text = Prompts[index],
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFFA0A0A5),
+                                        fontSize = 12.sp,
+                                    ),
+                                    textAlign = TextAlign.Center,
                                     modifier = Modifier
-                                        .size(25.dp)
-                                        .weight(1f),
-                                    painter = painterResource(id = R.drawable.microphone_new_svgrepo_com),
-                                    contentDescription = "Mic",
-                                    tint = Color(0xFFDDDDE4) // Optional: set the color of the icon
+                                        .width(200.dp)
+                                        .height(100.dp)
+                                        .padding(horizontal = 15.dp, vertical = 12.dp)
+//                                                .align(Alignment.Center)
                                 )
+
                             }
-
-
-
-                            val dragSelection = remember { mutableStateOf<TextRange?>(null) }
-                            val lastKnownText = remember { mutableStateOf(viewModel.message) }
-
-                            val textFieldValue = remember {
-                                mutableStateOf(
-                                    TextFieldValue(
-                                        text = viewModel.message,
-                                        selection = TextRange(viewModel.message.length) // Ensure cursor starts at the end
-                                    )
-                                )
-                            }
-
-                            TextField(
-
-                                value = textFieldValue.value.copy(
-                                    text = viewModel.message,
-                                    selection = when {
-                                        viewModel.message != lastKnownText.value -> {
-                                            // If the message has changed programmatically,
-                                            // preserve the current cursor/selection position
-                                            textFieldValue.value.selection
-                                        }
-                                        else -> {
-                                            // Otherwise, use the drag selection or current selection
-                                            dragSelection.value ?: textFieldValue.value.selection
-                                        }
-                                    }
-                                ),
-                                onValueChange = { newValue ->
-                                    // Update drag selection when the user drags or selects
-                                    dragSelection.value = if (newValue.text == textFieldValue.value.text) {
-                                        newValue.selection
-                                    } else {
-                                        null // Reset drag selection if the text changes programmatically
-                                    }
-
-
-                                    // Update the local state
-                                    textFieldValue.value = newValue
-
-                                    // Save the last known text and update ViewModel
-                                    lastKnownText.value = newValue.text
-                                    viewModel.updateMessage(newValue.text)
-                                },
-                                placeholder = { Text("Message") },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .onGloballyPositioned { coordinates ->
-                                        textFieldBounds = coordinates.boundsInRoot()
-                                    }
-                                    .focusRequester(focusRequester)
-                                    .onFocusChanged { focusState ->
-                                        isFocused = focusState.isFocused
-                                    },
-                                shape = RoundedCornerShape(size = 18.dp),
-                                colors = TextFieldDefaults.colors(
-                                    focusedTextColor = Color(0xFFBECBD1),
-                                    unfocusedTextColor = Color(0xFFBECBD1),
-                                    focusedIndicatorColor = Color.Transparent,
-                                    unfocusedIndicatorColor = Color.Transparent, // Optional, makes the indicator disappear
-                                    focusedLabelColor = Color(0xFF626568),
-                                    cursorColor = Color(0xFF626568),
-                                    unfocusedContainerColor = Color(0xFF171E2C),
-                                    focusedContainerColor = Color(0xFF22314A)
-                                )
-                            )
-
-
-
-
-                            if (!viewModel.getIsSending()) {
-                                val context = LocalContext.current
-
-                                IconButton(onClick = {
-                                    if(viewModel.loadedModelName.value == ""){
-                                        focusManager.clearFocus()
-                                        Toast.makeText(context, "Load A Model First", Toast.LENGTH_SHORT).show()
-                                    }
-                                    else {
-                                        viewModel.send()
-                                        focusManager.clearFocus()
-                                    }
-                                }
-                                ) {
-                                    Icon(
-                                        modifier = Modifier
-                                            .size(30.dp)
-                                            .weight(1f),
-                                        painter = painterResource(id = R.drawable.send_2_svgrepo_com),
-                                        contentDescription = "Send",
-                                        tint = Color(0xFFDDDDE4)
-                                    )
-                                }
-                            } else if (viewModel.getIsSending()) {
-                                IconButton(onClick = {
-                                    viewModel.stop() }) {
-                                    Icon(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .size(28.dp),
-                                        painter = painterResource(id = R.drawable.square_svgrepo_com),
-                                        contentDescription = "Stop",
-                                        tint = Color(0xFFDDDDE4)
-                                    )
-                                }
-                            }
-
                         }
                     }
-
-
                 }
+                //Prompt input field
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFF050B16))
+
+
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 5.dp, top = 8.dp, bottom = 12.dp, end = 5.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+
+                        ) {
+
+
+                        IconButton(onClick = {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(
+                                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM,
+                                )
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
+                            }
+                            speechRecognizerLauncher.launch(intent)
+                            focusManager.clearFocus()
+
+                        }) {
+                            Icon(
+//                                imageVector = Icons.Default.Send,
+                                modifier = Modifier
+                                    .size(25.dp)
+                                    .weight(1f),
+                                painter = painterResource(id = R.drawable.microphone_new_svgrepo_com),
+                                contentDescription = "Mic",
+                                tint = Color(0xFFDDDDE4) // Optional: set the color of the icon
+                            )
+                        }
+
+
+
+                        val dragSelection = remember { mutableStateOf<TextRange?>(null) }
+                        val lastKnownText = remember { mutableStateOf(viewModel.message) }
+
+                        val textFieldValue = remember {
+                            mutableStateOf(
+                                TextFieldValue(
+                                    text = viewModel.message,
+                                    selection = TextRange(viewModel.message.length) // Ensure cursor starts at the end
+                                )
+                            )
+                        }
+
+                        TextField(
+
+                            value = textFieldValue.value.copy(
+                                text = viewModel.message,
+                                selection = when {
+                                    viewModel.message != lastKnownText.value -> {
+                                        // If the message has changed programmatically,
+                                        // preserve the current cursor/selection position
+                                        textFieldValue.value.selection
+                                    }
+                                    else -> {
+                                        // Otherwise, use the drag selection or current selection
+                                        dragSelection.value ?: textFieldValue.value.selection
+                                    }
+                                }
+                            ),
+                            onValueChange = { newValue ->
+                                // Update drag selection when the user drags or selects
+                                dragSelection.value = if (newValue.text == textFieldValue.value.text) {
+                                    newValue.selection
+                                } else {
+                                    null // Reset drag selection if the text changes programmatically
+                                }
+
+
+                                // Update the local state
+                                textFieldValue.value = newValue
+
+                                // Save the last known text and update ViewModel
+                                lastKnownText.value = newValue.text
+                                viewModel.updateMessage(newValue.text)
+                            },
+                            placeholder = { Text("Message") },
+                            modifier = Modifier
+                                .weight(1f)
+                                .onGloballyPositioned { coordinates ->
+                                    textFieldBounds = coordinates.boundsInRoot()
+                                }
+                                .focusRequester(focusRequester)
+                                .onFocusChanged { focusState ->
+                                    isFocused = focusState.isFocused
+                                },
+                            shape = RoundedCornerShape(size = 18.dp),
+                            colors = TextFieldDefaults.colors(
+                                focusedTextColor = Color(0xFFBECBD1),
+                                unfocusedTextColor = Color(0xFFBECBD1),
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent, // Optional, makes the indicator disappear
+                                focusedLabelColor = Color(0xFF626568),
+                                cursorColor = Color(0xFF626568),
+                                unfocusedContainerColor = Color(0xFF171E2C),
+                                focusedContainerColor = Color(0xFF22314A)
+                            )
+                        )
+
+
+
+
+                        if (!viewModel.getIsSending()) {
+                            val context = LocalContext.current
+
+                            IconButton(onClick = {
+                                if(viewModel.loadedModelName.value == ""){
+                                    focusManager.clearFocus()
+                                    Toast.makeText(context, "Load A Model First", Toast.LENGTH_SHORT).show()
+                                }
+                                else {
+                                    viewModel.send()
+                                    focusManager.clearFocus()
+                                }
+                            }
+                            ) {
+                                Icon(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .weight(1f),
+                                    painter = painterResource(id = R.drawable.send_2_svgrepo_com),
+                                    contentDescription = "Send",
+                                    tint = Color(0xFFDDDDE4)
+                                )
+                            }
+                        } else if (viewModel.getIsSending()) {
+                            IconButton(onClick = {
+                                viewModel.stop() }) {
+                                Icon(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .size(28.dp),
+                                    painter = painterResource(id = R.drawable.square_svgrepo_com),
+                                    contentDescription = "Stop",
+                                    tint = Color(0xFFDDDDE4)
+                                )
+                            }
+                        }
+
+                    }
+                }
+
+
             }
+        }
 
     }
 

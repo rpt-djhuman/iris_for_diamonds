@@ -22,6 +22,9 @@ import kotlinx.coroutines.flow.catch
 import java.io.File
 import java.util.Locale
 import java.util.UUID
+import com.nervesparks.iris.data.Template
+import kotlinx.coroutines.flow.Flow
+
 
 class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instance(), private val userPreferencesRepository: UserPreferencesRepository): ViewModel() {
     companion object {
@@ -32,6 +35,94 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     private val _defaultModelName = mutableStateOf("")
     val defaultModelName: State<String> = _defaultModelName
+
+    private val _currentTemplate = mutableStateOf<Template?>(null)
+    val currentTemplate: State<Template?> = _currentTemplate
+
+    fun setCurrentTemplate(template: Template?) {
+        _currentTemplate.value = template
+    }
+
+    fun loadBuiltInTemplates(context: Context): List<Template> {
+        val templates = mutableListOf<Template>()
+        try {
+            context.assets.list("templates")?.forEach { filename ->
+                if (filename.endsWith(".json")) {
+                    val jsonString = context.assets.open("templates/$filename").bufferedReader().use { it.readText() }
+                    Template.fromJson(jsonString)?.let { templates.add(it) }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainViewModel", "Error loading built-in templates: ${e.message}")
+        }
+        return templates
+    }
+
+    // Add this function to MainViewModel.kt
+// Add this to MainViewModel.kt
+    fun generateTemplateResponse(prompt: String, onResponse: (String) -> Unit) {
+        viewModelScope.launch {
+            val responseBuilder = StringBuilder()
+
+            try {
+                // Create a simple message list with just the user prompt
+                val singlePromptMessages = listOf(
+                    mapOf("role" to "user", "content" to prompt)
+                )
+
+                // Use the existing send method but with only the user prompt
+                llamaAndroid.send(llamaAndroid.getTemplate(singlePromptMessages))
+                    .catch { e ->
+                        Log.e(tag, "generateTemplateResponse() failed", e)
+                        onResponse("Error: ${e.message}")
+                    }
+                    .collect { response ->
+                        responseBuilder.append(response)
+                        onResponse(responseBuilder.toString())
+                    }
+            } catch (e: Exception) {
+                Log.e(tag, "generateTemplateResponse() exception", e)
+                onResponse("Error: ${e.message}")
+            }
+        }
+    }
+
+    fun sendMessage(prompt: String) {
+        // Clear the current message field
+        message = ""
+
+        // Add to messages console
+        if (prompt.isNotEmpty()) {
+            if (first) {
+                addMessage("system", "This is a conversation between User and Iris, a friendly chatbot. Iris is helpful, kind, honest, good at writing, and never fails to answer any requests immediately and with precision.")
+                first = false
+            }
+
+            addMessage("user", prompt)
+
+            viewModelScope.launch {
+                try {
+                    llamaAndroid.send(llamaAndroid.getTemplate(messages))
+                        .catch {
+                            Log.e(tag, "send() failed", it)
+                            addMessage("error", it.message ?: "")
+                        }
+                        .collect { response ->
+                            // Create a new assistant message with the response
+                            if (getIsMarked()) {
+                                addMessage("codeBlock", response)
+                            } else {
+                                addMessage("assistant", response)
+                            }
+                        }
+                } finally {
+                    if (!getIsCompleteEOT()) {
+                        trimEOT()
+                    }
+                }
+            }
+        }
+    }
 
     init {
         loadDefaultModelName()
@@ -50,8 +141,8 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     var messages by mutableStateOf(
 
-            listOf<Map<String, String>>(),
-        )
+        listOf<Map<String, String>>(),
+    )
         private set
     var newShowModal by mutableStateOf(false)
     var showDownloadInfoModal by mutableStateOf(false)
@@ -78,7 +169,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                 "destination" to "stablelm-2-1_6b-chat.Q4_K_M.imx.gguf"
             ),
 
-        )
+            )
     )
 
     private var first by mutableStateOf(
@@ -161,9 +252,9 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                     destinationPath
                 )
             }
-        // Attempt to find and load the first model that exists in the combined logic
+            // Attempt to find and load the first model that exists in the combined logic
 
-         }
+        }
     }
 
 

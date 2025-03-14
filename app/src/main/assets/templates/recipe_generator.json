@@ -1,0 +1,41 @@
+{
+  "name": "Recipe Generator",
+  "version": "1.0.0",
+  "description": "Generate a recipe based on ingredients and preferences",
+  "input": [
+    {
+      "name": "main_ingredients",
+      "description": "Main ingredients you have available (comma separated)",
+      "type": "string",
+      "min": 3,
+      "max": 200
+    },
+    {
+      "name": "dietary_restrictions",
+      "description": "Any dietary restrictions",
+      "type": "categorical",
+      "options": ["None", "Vegetarian", "Vegan", "Gluten-Free", "Dairy-Free", "Keto", "Low-Carb"]
+    },
+    {
+      "name": "cooking_time",
+      "description": "Maximum cooking time in minutes",
+      "type": "int",
+      "min": 5,
+      "max": 180
+    },
+    {
+      "name": "skill_level",
+      "description": "Your cooking skill level",
+      "type": "categorical",
+      "options": ["Beginner", "Intermediate", "Advanced"]
+    }
+  ],
+  "output": [
+    {
+      "name": "recipe",
+      "description": "Complete recipe",
+      "type": "string"
+    }
+  ],
+  "prompt": "Create a recipe using these main ingredients: {{main_ingredients}}. The recipe should be {{dietary_restrictions}} and take no more than {{cooking_time}} minutes to prepare. The recipe should be suitable for a {{skill_level}} cook. Include a title, ingredients list, step-by-step instructions, and approximate nutritional information."
+}
