@@ -226,7 +226,7 @@ class MainActivity(
                                     Spacer(Modifier.padding(5.dp))
                                     Text(
                                         text = "Iris for Diamonds",
-                                        fontWeight = FontWeight(500),
+                                        fontWeight = FontWeight(450),
                                         color = Color.White,
                                         fontSize = 30.sp
                                     )
@@ -288,7 +288,7 @@ class MainActivity(
                                             .clickable {
                                                 val intent = Intent(Intent.ACTION_VIEW).apply {
                                                     data =
-                                                        Uri.parse("https://github.com/nerve-sparks/iris_android")
+                                                        Uri.parse("https://github.com/rpt-djhuman/iris_android")
                                                 }
                                                 context.startActivity(intent)
                                             }
