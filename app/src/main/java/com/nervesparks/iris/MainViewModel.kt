@@ -23,6 +23,8 @@ import java.io.File
 import java.util.Locale
 import java.util.UUID
 import com.nervesparks.iris.data.Template
+import com.nervesparks.iris.utils.ResourceMetrics
+import com.nervesparks.iris.utils.ResourceMonitor
 import kotlinx.coroutines.flow.Flow
 
 
@@ -38,6 +40,38 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     private val _currentTemplate = mutableStateOf<Template?>(null)
     val currentTemplate: State<Template?> = _currentTemplate
+
+    private lateinit var resourceMonitor: ResourceMonitor
+    var resourceMetricsList = mutableListOf<ResourceMetrics>()
+    var averageResourceMetrics by mutableStateOf(ResourceMetrics())
+
+    var baselineMemoryUsage by mutableStateOf(0f)  // Memory usage before model loading
+    var peakMemoryUsage by mutableStateOf(0f)      // Peak memory during inference
+    var modelMemoryImpact by mutableStateOf(0f)    // Calculated model memory impact
+
+    var loadedModelPath by mutableStateOf("")
+
+    // Initialize the resource monitor in a function
+    fun initResourceMonitor(context: Context) {
+        resourceMonitor = ResourceMonitor(context)
+    }
+    fun prepareForBenchmark(context: Context) {
+        // Initialize resource monitor if not already done
+        if (!::resourceMonitor.isInitialized) {
+            resourceMonitor = ResourceMonitor(context)
+        }
+
+        // Force garbage collection to get more accurate baseline
+        System.gc()
+        Thread.sleep(500)  // Give GC time to complete
+
+        // Measure baseline memory before model loading
+        val baselineMetrics = resourceMonitor.collectMetrics()
+        baselineMemoryUsage = baselineMetrics.memoryUsageMB
+
+        Log.d("Benchmark", "Baseline memory usage: $baselineMemoryUsage MB")
+    }
+
 
     fun setCurrentTemplate(template: Template?) {
         _currentTemplate.value = template
@@ -428,17 +462,34 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     fun myCustomBenchmark() {
         viewModelScope.launch {
             try {
-                tokensList.clear() // Reset the token list before benchmarking
-                benchmarkStartTime = System.currentTimeMillis() // Record the start time
-                isBenchmarkingComplete = false // Reset benchmarking flag
+                tokensList.clear()
+                resourceMetricsList.clear()
+                benchmarkStartTime = System.currentTimeMillis()
+                isBenchmarkingComplete = false
 
-                // Launch a coroutine to update the tokens per second every second
+                // Launch a coroutine to update metrics every second
                 launch {
                     while (!isBenchmarkingComplete) {
-                        delay(1000L) // Delay 1 second
+                        delay(1000L)
                         val elapsedTime = System.currentTimeMillis() - benchmarkStartTime
                         if (elapsedTime > 0) {
                             tokensPerSecondsFinal = tokensList.size.toDouble() / (elapsedTime / 1000.0)
+
+                            // Collect resource metrics
+                            val metrics = resourceMonitor.collectMetrics()
+                            resourceMetricsList.add(metrics)
+
+                            // Calculate average metrics
+                            if (resourceMetricsList.isNotEmpty()) {
+                                averageResourceMetrics = ResourceMetrics(
+                                    cpuUsage = resourceMetricsList.map { it.cpuUsage }.average().toFloat(),
+                                    memoryUsageMB = resourceMetricsList.map { it.memoryUsageMB }.average().toFloat(),
+                                    totalMemoryMB = resourceMetricsList.last().totalMemoryMB,
+                                    batteryLevel = resourceMetricsList.last().batteryLevel,
+                                    batteryTemperature = resourceMetricsList.map { it.batteryTemperature }.average().toFloat(),
+                                    batteryCurrentDrawMa = resourceMetricsList.map { it.batteryCurrentDrawMa }.average().toInt()
+                                )
+                            }
                         }
                     }
                 }
@@ -446,29 +497,34 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                 llamaAndroid.myCustomBenchmark()
                     .collect { emittedString ->
                         if (emittedString != null) {
-                            tokensList.add(emittedString) // Add each token to the list
+                            tokensList.add(emittedString)
                             Log.d(tag, "Token collected: $emittedString")
                         }
                     }
-            } catch (exc: IllegalStateException) {
-                Log.e(tag, "myCustomBenchmark() failed", exc)
-            } catch (exc: kotlinx.coroutines.TimeoutCancellationException) {
-                Log.e(tag, "myCustomBenchmark() timed out", exc)
             } catch (exc: Exception) {
-                Log.e(tag, "Unexpected error during myCustomBenchmark()", exc)
+                Log.e(tag, "myCustomBenchmark() error", exc)
             } finally {
-                // Benchmark complete, log the final tokens per second value
                 val elapsedTime = System.currentTimeMillis() - benchmarkStartTime
                 val finalTokensPerSecond = if (elapsedTime > 0) {
                     tokensList.size.toDouble() / (elapsedTime / 1000.0)
                 } else {
                     0.0
                 }
-                Log.d(tag, "Benchmark complete. Tokens/sec: $finalTokensPerSecond")
 
-                // Update the final tokens per second and stop updating the value
                 tokensPerSecondsFinal = finalTokensPerSecond
-                isBenchmarkingComplete = true // Mark benchmarking as complete
+                isBenchmarkingComplete = true
+
+                // Collect final metrics
+                if (resourceMetricsList.isNotEmpty()) {
+                    averageResourceMetrics = ResourceMetrics(
+                        cpuUsage = resourceMetricsList.map { it.cpuUsage }.average().toFloat(),
+                        memoryUsageMB = resourceMetricsList.map { it.memoryUsageMB }.average().toFloat(),
+                        totalMemoryMB = resourceMetricsList.last().totalMemoryMB,
+                        batteryLevel = resourceMetricsList.last().batteryLevel,
+                        batteryTemperature = resourceMetricsList.map { it.batteryTemperature }.average().toFloat(),
+                        batteryCurrentDrawMa = resourceMetricsList.map { it.batteryCurrentDrawMa }.average().toInt()
+                    )
+                }
             }
         }
     }
@@ -479,25 +535,24 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     var loadedModelName = mutableStateOf("");
 
-    fun load(pathToModel: String, userThreads: Int)  {
+    fun load(pathToModel: String, userThreads: Int) {
         viewModelScope.launch {
-            try{
+            try {
                 llamaAndroid.unload()
-            } catch (exc: IllegalStateException){
+            } catch (exc: IllegalStateException) {
                 Log.e(tag, "load() failed", exc)
             }
             try {
+                loadedModelPath = pathToModel  // Store the path
                 var modelName = pathToModel.split("/")
                 loadedModelName.value = modelName.last()
                 newShowModal = false
-                showModal= false
+                showModal = false
                 showAlert = true
                 llamaAndroid.load(pathToModel, userThreads = userThreads, topK = topK, topP = topP, temp = temp)
                 showAlert = false
-
             } catch (exc: IllegalStateException) {
                 Log.e(tag, "load() failed", exc)
-//                addMessage("error", exc.message ?: "")
             }
             showModal = false
             showAlert = false
@@ -580,6 +635,8 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     fun stop() {
         llamaAndroid.stopTextGeneration()
     }
+
+
 
 }
 
