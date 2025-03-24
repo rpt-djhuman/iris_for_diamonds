@@ -26,6 +26,7 @@ import com.nervesparks.iris.MainViewModel
 import kotlinx.coroutines.launch
 import kotlin.math.min
 import android.util.Log
+import kotlinx.coroutines.delay
 
 data class BenchmarkState(
     val isRunning: Boolean = false,
@@ -41,6 +42,13 @@ data class BenchmarkStats(
     val tokensPerSecondHistory: List<Double> = emptyList()
 )
 
+data class ResourceGraphData(
+    val cpuHistory: List<Float> = emptyList(),
+    val memoryHistory: List<Float> = emptyList(),
+    val temperatureHistory: List<Float> = emptyList(),
+    val batteryDrawHistory: List<Int> = emptyList()
+)
+
 private fun safeFormatDouble(value: Double): String {
     return try {
         "%.2f".format(value)
@@ -53,6 +61,11 @@ private fun safeFormatDouble(value: Double): String {
 fun BenchMarkScreen(viewModel: MainViewModel) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.initResourceMonitor(context)  // Use the context variable
+    }
 
     var state by remember { mutableStateOf(BenchmarkState()) }
     var benchmarkStats by remember { mutableStateOf(BenchmarkStats()) }
@@ -63,6 +76,7 @@ fun BenchMarkScreen(viewModel: MainViewModel) {
     val hasStats by remember(benchmarkStats) {
         mutableStateOf(benchmarkStats.tokensPerSecondHistory.isNotEmpty())
     }
+
 
     // Track tokens per second history and calculate statistics
     LaunchedEffect(viewModel.tokensPerSecondsFinal, viewModel.isBenchmarkingComplete) {
@@ -131,7 +145,7 @@ fun BenchMarkScreen(viewModel: MainViewModel) {
                 }
             }
         }
-        val context = LocalContext.current
+
 
         // Benchmark Button
         androidx.compose.material3.Button(
@@ -249,6 +263,10 @@ fun BenchMarkScreen(viewModel: MainViewModel) {
                     }
                 }
             }
+        }
+
+        if (viewModel.resourceMetricsList.isNotEmpty()) {
+            ResourceMetricsCard(viewModel)
         }
 
         // Results Section
@@ -438,6 +456,252 @@ fun TokensPerSecondGraph(
             } catch (e: Exception) {
                 // Log the error but don't crash
                 Log.e("TokensPerSecondGraph", "Error drawing graph: ${e.message}", e)
+            }
+        }
+    }
+}
+
+@Composable
+fun ResourceMetricsCard(viewModel: MainViewModel) {
+    val averageMetrics = viewModel.averageResourceMetrics
+    val resourceHistory = remember {
+        mutableStateOf(
+            ResourceGraphData(
+                cpuHistory = viewModel.resourceMetricsList.map { it.cpuUsage },
+                memoryHistory = viewModel.resourceMetricsList.map { it.memoryUsageMB },
+                temperatureHistory = viewModel.resourceMetricsList.map { it.batteryTemperature },
+                batteryDrawHistory = viewModel.resourceMetricsList.map { it.batteryCurrentDrawMa }
+            )
+        )
+    }
+
+    // Update resource history when metrics change
+    LaunchedEffect(viewModel.resourceMetricsList.size) {
+        resourceHistory.value = ResourceGraphData(
+            cpuHistory = viewModel.resourceMetricsList.map { it.cpuUsage },
+            memoryHistory = viewModel.resourceMetricsList.map { it.memoryUsageMB },
+            temperatureHistory = viewModel.resourceMetricsList.map { it.batteryTemperature },
+            batteryDrawHistory = viewModel.resourceMetricsList.map { it.batteryCurrentDrawMa }
+        )
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        elevation = 4.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Resource Usage (During Benchmark)",
+                style = MaterialTheme.typography.h6,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            // CPU Usage
+            Text(
+                "CPU Usage: ${safeFormatDouble(averageMetrics.cpuUsage.toDouble())}% " +
+                        "(${if (averageMetrics.cpuUsage < 1f) "Very low - may need permissions" else "Normal"})",
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
+            // Memory Usage with percentage
+            val memPercent = if (averageMetrics.totalMemoryMB > 0) {
+                (averageMetrics.memoryUsageMB / averageMetrics.totalMemoryMB * 100).toDouble()
+            } else 0.0
+
+            Text(
+                "Memory: ${safeFormatDouble(averageMetrics.memoryUsageMB.toDouble())} MB / " +
+                        "${safeFormatDouble(averageMetrics.totalMemoryMB.toDouble())} MB " +
+                        "(${safeFormatDouble(memPercent)}%)",
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
+            // Battery Temperature
+            Text(
+                "Battery Temperature: ${safeFormatDouble(averageMetrics.batteryTemperature.toDouble())}°C",
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
+            // Battery Current Draw
+            Text(
+                "Battery Current: ${averageMetrics.batteryCurrentDrawMa} mA",
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
+
+            // CPU Usage Graph
+            if (resourceHistory.value.cpuHistory.isNotEmpty()) {
+                Text(
+                    "CPU Usage Over Time",
+                    style = MaterialTheme.typography.subtitle1,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+
+                ResourceGraph(
+                    dataPoints = resourceHistory.value.cpuHistory.map { it.toDouble() },
+                    color = Color(0xFF4CAF50),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+            }
+
+            // Memory Usage Graph
+            if (resourceHistory.value.memoryHistory.isNotEmpty()) {
+                Text(
+                    "Memory Usage Over Time (MB)",
+                    style = MaterialTheme.typography.subtitle1,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+
+                ResourceGraph(
+                    dataPoints = resourceHistory.value.memoryHistory.map { it.toDouble() },
+                    color = Color(0xFF2196F3),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+            }
+
+            // Temperature Graph
+            if (resourceHistory.value.temperatureHistory.isNotEmpty()) {
+                Text(
+                    "Temperature Over Time (°C)",
+                    style = MaterialTheme.typography.subtitle1,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+
+                ResourceGraph(
+                    dataPoints = resourceHistory.value.temperatureHistory.map { it.toDouble() },
+                    color = Color(0xFFF44336),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+            }
+
+            // Battery Draw Graph
+            if (resourceHistory.value.batteryDrawHistory.isNotEmpty()) {
+                Text(
+                    "Battery Current Draw Over Time (mA)",
+                    style = MaterialTheme.typography.subtitle1,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+
+                ResourceGraph(
+                    dataPoints = resourceHistory.value.batteryDrawHistory.map { it.toDouble() },
+                    color = Color(0xFFFF9800),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ResourceGraph(
+    dataPoints: List<Double>,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    if (dataPoints.isEmpty()) return
+
+    // Safe calculation of min/max values
+    val maxValue = dataPoints.maxOrNull() ?: 0.0
+    val minValue = dataPoints.minOrNull() ?: 0.0
+
+    Box(modifier = modifier) {
+        // Add labels for min/max values
+        Text(
+            text = "%.1f".format(maxValue),
+            fontSize = 10.sp,
+            color = Color.Gray,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 4.dp, top = 4.dp)
+        )
+
+        Text(
+            text = "%.1f".format(minValue),
+            fontSize = 10.sp,
+            color = Color.Gray,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 4.dp, bottom = 4.dp)
+        )
+
+        // Draw the actual graph
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            try {
+                val width = size.width
+                val height = size.height
+                val padding = 24.dp.toPx()
+
+                val range = (maxValue - minValue).coerceAtLeast(1.0)
+
+                // Draw axes
+                drawLine(
+                    color = Color.Gray,
+                    start = Offset(padding, height - padding),
+                    end = Offset(width - padding, height - padding),
+                    strokeWidth = 2f
+                )
+
+                drawLine(
+                    color = Color.Gray,
+                    start = Offset(padding, padding),
+                    end = Offset(padding, height - padding),
+                    strokeWidth = 2f
+                )
+
+                // Only draw points if we have enough data
+                if (dataPoints.size > 1) {
+                    val pointCount = dataPoints.size
+                    val pointDistance = (width - 2 * padding) / (pointCount - 1).coerceAtLeast(1)
+
+                    // Create path for the line
+                    val path = Path()
+                    var firstPoint = true
+
+                    dataPoints.forEachIndexed { index, value ->
+                        val x = padding + index * pointDistance
+                        val y = height - padding - ((value - minValue) / range * (height - 2 * padding)).coerceIn(0.0, (height - 2 * padding).toDouble())
+
+                        if (firstPoint) {
+                            path.moveTo(x, y.toFloat())
+                            firstPoint = false
+                        } else {
+                            path.lineTo(x, y.toFloat())
+                        }
+
+                        // Draw point
+                        drawCircle(
+                            color = color,
+                            radius = 3.dp.toPx(),
+                            center = Offset(x, y.toFloat())
+                        )
+                    }
+
+                    // Draw line
+                    drawPath(
+                        path = path,
+                        color = color,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+                } else if (dataPoints.size == 1) {
+                    // If we only have one point, just draw it
+                    val x = width / 2
+                    val y = height / 2
+                    drawCircle(
+                        color = color,
+                        radius = 3.dp.toPx(),
+                        center = Offset(x, y)
+                    )
+                }
+            } catch (e: Exception) {
+                Log.e("ResourceGraph", "Error drawing graph: ${e.message}", e)
             }
         }
     }

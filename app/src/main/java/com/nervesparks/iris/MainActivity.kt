@@ -64,6 +64,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.nervesparks.iris.data.UserPreferencesRepository
 import com.nervesparks.iris.ui.SettingsBottomSheet
+import android.Manifest
 
 
 class MainViewModelFactory(
@@ -101,6 +102,12 @@ class MainActivity(
 //            activityManager.getMemoryInfo(memoryInfo)
 //        }
 //    }
+
+    private val REQUIRED_PERMISSIONS = arrayOf(
+        Manifest.permission.READ_EXTERNAL_STORAGE,
+        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        Manifest.permission.READ_PHONE_STATE
+    )
 
     val darkNavyBlue = Color(0xFF001F3D) // Dark navy blue color
     val lightNavyBlue = Color(0xFF3A4C7C)
