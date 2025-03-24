@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.min
 import android.app.DownloadManager
 import android.util.Log
+import androidx.compose.ui.graphics.nativeCanvas
 import kotlinx.coroutines.delay
 import java.io.File
 
@@ -88,6 +89,7 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
     LaunchedEffect(viewModel.modelLoadMemoryImpact, viewModel.modelLoadTime, viewModel.isBenchmarkingComplete) {
         modelLoadMemoryImpact = viewModel.modelLoadMemoryImpact
         modelLoadTime = viewModel.modelLoadTime
+        benchmarkStage = viewModel.benchmarkStage
 
         if (viewModel.isBenchmarkingComplete) {
             benchmarkStage = "Completed"
@@ -256,7 +258,6 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
         } else {
             // Benchmark in progress or results
             if (benchmarkStage != "Completed" && !viewModel.isBenchmarkingComplete) {
-                // Progress indicator
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -273,8 +274,82 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             "Benchmark in progress: $benchmarkStage",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        // Add divider
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Divider(color = Color(0xFF334155), thickness = 1.dp)
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Live metrics section
+                        Text(
+                            "Live Metrics",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Memory metrics
+                        if (benchmarkStage == "Loading model") {
+                            Text(
+                                "Current Memory: ${viewModel.averageResourceMetrics.memoryUsageMB.toInt()} MB",
+                                color = Color.White
+                            )
+                            Text(
+                                "Baseline Memory: ${viewModel.baselineMemoryUsage.toInt()} MB",
+                                color = Color.White
+                            )
+                            Text(
+                                "Memory Impact: ${(viewModel.averageResourceMetrics.memoryUsageMB - viewModel.baselineMemoryUsage).toInt()} MB",
+                                color = Color.White
+                            )
+                        } else if (benchmarkStage == "Running inference benchmark") {
+                            Text(
+                                "Tokens Per Second: ${safeFormatDouble(viewModel.tokensPerSecondsFinal)}",
+                                color = Color.White
+                            )
+                            Text(
+                                "Current Memory: ${viewModel.averageResourceMetrics.memoryUsageMB.toInt()} MB",
+                                color = Color.White
+                            )
+                            Text(
+                                "Peak Memory: ${viewModel.peakMemoryUsage.toInt()} MB",
+                                color = Color.White
+                            )
+//                            Text(
+//                                "CPU Usage: ${safeFormatDouble(viewModel.averageResourceMetrics.cpuUsage.toDouble())}%",
+//                                color = Color.White
+//                            )
+
+                            // Add token count
+                            Text(
+                                "Tokens Generated: ${viewModel.tokensList.size}",
+                                color = Color.White
+                            )
+                        }
+
+                        // Battery metrics
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "Battery Temp: ${safeFormatDouble(viewModel.averageResourceMetrics.batteryTemperature.toDouble())}°C",
                             color = Color.White
                         )
+                        Text(
+                            "Battery Current: ${viewModel.averageResourceMetrics.batteryCurrentDrawMa} mA",
+                            color = Color.White
+                        )
+
+                        // Elapsed time
+                        if (viewModel.benchmarkStartTime > 0) {
+                            val elapsedSeconds = (System.currentTimeMillis() - viewModel.benchmarkStartTime) / 1000
+                            Text(
+                                "Elapsed Time: ${elapsedSeconds}s",
+                                color = Color.White
+                            )
+                        }
                     }
                 }
             } else {
@@ -313,6 +388,7 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
                             fontSize = 16.sp
                         )
                         Spacer(modifier = Modifier.height(8.dp))
+                        Text("Total tokens generated: ${safeFormatDouble(viewModel.tokensList.size.toDouble())}", color = Color.White)
                         Text("Tokens per second: ${safeFormatDouble(viewModel.tokensPerSecondsFinal)}", color = Color.White)
                         Text("CPU usage: ${safeFormatDouble(viewModel.averageResourceMetrics.cpuUsage.toDouble())}%", color = Color.White)
                         Text("Peak memory: ${viewModel.peakMemoryUsage.toInt()} MB", color = Color.White)
@@ -381,6 +457,10 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
                 // Run another benchmark button
                 androidx.compose.material3.Button(
                     onClick = {
+                        // Reset all metrics before starting a new benchmark
+                        viewModel.resetBenchmarkMetrics()
+
+                        // Reset UI state
                         isBenchmarkStarted = false
                         selectedModelForBenchmark = null
                         benchmarkStats = BenchmarkStats()
@@ -550,12 +630,12 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
             )
 
             // CPU Usage
-            Text(
-                "CPU Usage: ${safeFormatDouble(averageMetrics.cpuUsage.toDouble())}% " +
-                        "(${if (averageMetrics.cpuUsage < 1f) "Very low - may need permissions" else "Normal"})",
-                modifier = Modifier.padding(vertical = 4.dp),
-                color = Color.White
-            )
+//            Text(
+//                "CPU Usage: ${safeFormatDouble(averageMetrics.cpuUsage.toDouble())}% " +
+//                        "(${if (averageMetrics.cpuUsage < 1f) "Very low - may need permissions" else "Normal"})",
+//                modifier = Modifier.padding(vertical = 4.dp),
+//                color = Color.White
+//            )
 
             // Memory Usage with percentage
             val memPercent = if (averageMetrics.totalMemoryMB > 0) {
@@ -585,23 +665,23 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
             )
 
             // CPU Usage Graph
-            if (resourceHistory.value.cpuHistory.isNotEmpty()) {
-                Text(
-                    "CPU Usage Over Time",
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-                )
-
-                ResourceGraph(
-                    dataPoints = resourceHistory.value.cpuHistory.map { it.toDouble() },
-                    color = Color(0xFF4CAF50),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp)
-                )
-            }
+//            if (resourceHistory.value.cpuHistory.isNotEmpty()) {
+//                Text(
+//                    "CPU Usage Over Time",
+//                    color = Color.White,
+//                    fontWeight = FontWeight.Bold,
+//                    fontSize = 14.sp,
+//                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+//                )
+//
+//                ResourceGraph(
+//                    dataPoints = resourceHistory.value.cpuHistory.map { it.toDouble() },
+//                    color = Color(0xFF4CAF50),
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .height(120.dp)
+//                )
+//            }
 
             // Memory Usage Graph
             if (resourceHistory.value.memoryHistory.isNotEmpty()) {
@@ -669,8 +749,43 @@ fun ResourceGraph(
     color: Color,
     modifier: Modifier = Modifier
 ) {
-    // Existing implementation
-    if (dataPoints.isEmpty()) return
+    if (dataPoints.isEmpty()) {
+        // Draw empty graph with zero baseline
+        Box(modifier = modifier) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val width = size.width
+                val height = size.height
+                val padding = 24.dp.toPx()
+
+                // Draw axes
+                drawLine(
+                    color = Color.Gray,
+                    start = Offset(padding, height - padding),
+                    end = Offset(width - padding, height - padding),
+                    strokeWidth = 2f
+                )
+
+                drawLine(
+                    color = Color.Gray,
+                    start = Offset(padding, padding),
+                    end = Offset(padding, height - padding),
+                    strokeWidth = 2f
+                )
+
+                // Draw "0" label
+                drawContext.canvas.nativeCanvas.drawText(
+                    "0.0",
+                    padding - 20f,
+                    height - padding + 15f,
+                    android.graphics.Paint().apply {
+                        this.color = android.graphics.Color.GRAY
+                        textSize = 10.sp.toPx()
+                    }
+                )
+            }
+        }
+        return
+    }
 
     // Safe calculation of min/max values
     val maxValue = dataPoints.maxOrNull() ?: 0.0
@@ -781,3 +896,4 @@ private fun buildDeviceInfo(viewModel: MainViewModel): String {
         append("User Threads: ${viewModel.user_thread}")
     }
 }
+

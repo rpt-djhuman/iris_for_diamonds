@@ -651,6 +651,9 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     // In MainViewModel.kt
     fun startComprehensiveBenchmark(context: Context, modelPath: String? = null) {
         viewModelScope.launch {
+            // Reset all metrics first
+            resetBenchmarkMetrics()
+
             isBenchmarkInProgress = true
             benchmarkStage = "Preparing"
             resourceMetricsList.clear() // Clear previous metrics
@@ -674,7 +677,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
                 // 1. Force garbage collection for more accurate baseline
                 System.gc()
-                delay(500)  // Give GC time to complete
+                delay(2000)  // Give GC time to complete
 
                 // 3. Measure model load time and memory impact
                 benchmarkStage = "Measuring baseline metrics"
@@ -713,7 +716,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                     modelLoadTime = loadEndTime - loadStartTime
 
                     // Add small delay to ensure data has time to stabilise
-                    delay(1000)
+                    delay(3000)
 
                     // Measure memory after loading
                     val postLoadMetrics = resourceMonitor.collectMetrics()
@@ -802,6 +805,27 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                 batteryCurrentDrawMa = resourceMetricsList.map { it.batteryCurrentDrawMa }.average().toInt()
             )
         }
+    }
+
+    fun resetBenchmarkMetrics() {
+        // Reset all benchmark-related metrics
+        modelLoadTime = 0L
+        modelLoadMemoryImpact = 0f
+        baselineMemoryUsage = 0f
+        peakMemoryUsage = 0f
+        modelMemoryImpact = 0f
+        tokensPerSecondsFinal = 0.0
+
+        // Clear collections
+        resourceMetricsList.clear()
+        tokensList.clear()
+
+        // Reset average metrics
+        averageResourceMetrics = ResourceMetrics()
+
+        // Reset benchmark state
+        isBenchmarkingComplete = false
+        benchmarkStage = "Not started"
     }
 
 
