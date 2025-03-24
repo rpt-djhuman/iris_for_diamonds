@@ -41,9 +41,14 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     private val _currentTemplate = mutableStateOf<Template?>(null)
     val currentTemplate: State<Template?> = _currentTemplate
 
-    private lateinit var resourceMonitor: ResourceMonitor
+    public lateinit var resourceMonitor: ResourceMonitor
     var resourceMetricsList = mutableListOf<ResourceMetrics>()
     var averageResourceMetrics by mutableStateOf(ResourceMetrics())
+
+    var modelLoadTime by mutableStateOf(0L)
+    var modelLoadMemoryImpact by mutableStateOf(0f)
+    var isBenchmarkInProgress by mutableStateOf(false)
+    var benchmarkStage by mutableStateOf("Not started")
 
     var baselineMemoryUsage by mutableStateOf(0f)  // Memory usage before model loading
     var peakMemoryUsage by mutableStateOf(0f)      // Peak memory during inference
@@ -90,6 +95,13 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
             Log.e("MainViewModel", "Error loading built-in templates: ${e.message}")
         }
         return templates
+    }
+
+    fun collectResourceMetrics(): ResourceMetrics {
+        if (!::resourceMonitor.isInitialized) {
+            throw IllegalStateException("Resource monitor not initialized")
+        }
+        return resourceMonitor.collectMetrics()
     }
 
     // Add this function to MainViewModel.kt
@@ -634,6 +646,154 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     fun stop() {
         llamaAndroid.stopTextGeneration()
+    }
+
+    fun startComprehensiveBenchmark(context: Context, modelPath: String) {
+        viewModelScope.launch {
+            isBenchmarkInProgress = true
+            benchmarkStage = "Preparing"
+            resourceMetricsList.clear() // Clear previous metrics
+
+            // Initialize resource monitor if not already done
+            if (!::resourceMonitor.isInitialized) {
+                resourceMonitor = ResourceMonitor(context)
+            }
+
+            // 1. Force garbage collection to get more accurate baseline
+            System.gc()
+            delay(500)  // Give GC time to complete
+
+            // 2. Measure baseline memory and battery before model loading
+            benchmarkStage = "Measuring baseline metrics"
+            val baselineMetrics = resourceMonitor.collectMetrics()
+            baselineMemoryUsage = baselineMetrics.memoryUsageMB
+            val baselineBatteryLevel = baselineMetrics.batteryLevel
+            val baselineBatteryTemp = baselineMetrics.batteryTemperature
+
+            Log.d("Benchmark", "Baseline memory: $baselineMemoryUsage MB")
+            Log.d("Benchmark", "Baseline battery: $baselineBatteryLevel%")
+            Log.d("Benchmark", "Baseline temperature: $baselineBatteryTemp°C")
+
+            // 3. Unload any currently loaded model
+            benchmarkStage = "Unloading current model"
+            try {
+                llamaAndroid.unload()
+                loadedModelName.value = ""
+                delay(500) // Give time for unloading to complete
+            } catch (e: Exception) {
+                Log.e("Benchmark", "Error unloading model: ${e.message}")
+            }
+
+            // 4. Measure model load time and memory impact
+            benchmarkStage = "Loading model"
+            val loadStartTime = System.currentTimeMillis()
+
+            try {
+                // Start collecting metrics during loading
+                launch {
+                    while (benchmarkStage == "Loading model") {
+                        val metrics = resourceMonitor.collectMetrics()
+                        resourceMetricsList.add(metrics)
+                        delay(200) // Sample every 200ms during loading
+                    }
+                }
+
+                // Load the model with standard parameters
+                llamaAndroid.load(modelPath, userThreads = user_thread.toInt(), topK = topK, topP = topP, temp = temp)
+
+                // Update model info
+                loadedModelPath = modelPath
+                val modelName = modelPath.split("/").last()
+                loadedModelName.value = modelName
+
+                // Calculate load time
+                val loadEndTime = System.currentTimeMillis()
+                modelLoadTime = loadEndTime - loadStartTime
+
+                // Measure memory after loading
+                val postLoadMetrics = resourceMonitor.collectMetrics()
+                modelLoadMemoryImpact = postLoadMetrics.memoryUsageMB - baselineMemoryUsage
+
+                // Calculate peak memory during loading
+                peakMemoryUsage = resourceMetricsList
+                    .maxOfOrNull { it.memoryUsageMB } ?: postLoadMetrics.memoryUsageMB
+
+                Log.d("Benchmark", "Model load time: $modelLoadTime ms")
+                Log.d("Benchmark", "Model memory impact: $modelLoadMemoryImpact MB")
+                Log.d("Benchmark", "Peak memory during loading: $peakMemoryUsage MB")
+
+                // 5. Now proceed with the inference benchmark
+                benchmarkStage = "Running inference benchmark"
+                resourceMetricsList.clear() // Clear for inference metrics
+                tokensList.clear()
+                benchmarkStartTime = System.currentTimeMillis()
+                isBenchmarkingComplete = false
+
+                // Launch a coroutine to update metrics every second during inference
+                launch {
+                    while (!isBenchmarkingComplete) {
+                        delay(1000L)
+                        val metrics = resourceMonitor.collectMetrics()
+                        resourceMetricsList.add(metrics)
+
+                        // Update peak memory if current usage is higher
+                        if (metrics.memoryUsageMB > peakMemoryUsage) {
+                            peakMemoryUsage = metrics.memoryUsageMB
+                        }
+
+                        // Calculate tokens per second
+                        val elapsedTime = System.currentTimeMillis() - benchmarkStartTime
+                        if (elapsedTime > 0) {
+                            tokensPerSecondsFinal = tokensList.size.toDouble() / (elapsedTime / 1000.0)
+                        }
+
+                        // Update average metrics
+                        updateAverageResourceMetrics()
+                    }
+                }
+
+                // Run the actual benchmark
+                llamaAndroid.myCustomBenchmark()
+                    .collect { emittedString ->
+                        if (emittedString != null) {
+                            tokensList.add(emittedString)
+                        }
+                    }
+
+                benchmarkStage = "Completed"
+            } catch (e: Exception) {
+                benchmarkStage = "Error: ${e.message}"
+                Log.e("Benchmark", "Benchmark error: ${e.message}")
+            } finally {
+                isBenchmarkingComplete = true
+                isBenchmarkInProgress = false
+
+                // Final metrics update
+                updateAverageResourceMetrics()
+
+                // Calculate battery impact
+                val finalMetrics = resourceMonitor.collectMetrics()
+                val batteryImpact = baselineBatteryLevel - finalMetrics.batteryLevel
+                val tempIncrease = finalMetrics.batteryTemperature - baselineBatteryTemp
+
+                Log.d("Benchmark", "Battery impact: $batteryImpact%")
+                Log.d("Benchmark", "Temperature increase: $tempIncrease°C")
+            }
+        }
+    }
+
+    // Helper function to update average metrics
+    private fun updateAverageResourceMetrics() {
+        if (resourceMetricsList.isNotEmpty()) {
+            averageResourceMetrics = ResourceMetrics(
+                cpuUsage = resourceMetricsList.map { it.cpuUsage }.average().toFloat(),
+                memoryUsageMB = resourceMetricsList.map { it.memoryUsageMB }.average().toFloat(),
+                totalMemoryMB = resourceMetricsList.last().totalMemoryMB,
+                batteryLevel = resourceMetricsList.last().batteryLevel,
+                batteryTemperature = resourceMetricsList.map { it.batteryTemperature }.average().toFloat(),
+                batteryCurrentDrawMa = resourceMetricsList.map { it.batteryCurrentDrawMa }.average().toInt()
+            )
+        }
     }
 
 

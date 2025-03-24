@@ -1,16 +1,21 @@
-// PR to enhance BenchMarkScreen with statistics and graph visualization
-
 package com.nervesparks.iris.ui
 
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,8 +30,10 @@ import androidx.compose.ui.unit.sp
 import com.nervesparks.iris.MainViewModel
 import kotlinx.coroutines.launch
 import kotlin.math.min
+import android.app.DownloadManager
 import android.util.Log
 import kotlinx.coroutines.delay
+import java.io.File
 
 data class BenchmarkState(
     val isRunning: Boolean = false,
@@ -58,25 +65,24 @@ private fun safeFormatDouble(value: Double): String {
 }
 
 @Composable
-fun BenchMarkScreen(viewModel: MainViewModel) {
+fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: File?) {
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
-    LaunchedEffect(Unit) {
-        viewModel.initResourceMonitor(context)  // Use the context variable
-    }
+    // State for model selection and benchmark process
+    var selectedModelForBenchmark by remember { mutableStateOf<String?>(null) }
+    var isBenchmarkStarted by remember { mutableStateOf(false) }
+    var benchmarkStage by remember { mutableStateOf("Not started") }
 
-    var state by remember { mutableStateOf(BenchmarkState()) }
+    // Benchmark statistics
     var benchmarkStats by remember { mutableStateOf(BenchmarkStats()) }
+    var modelLoadTime by remember { mutableStateOf(0L) }
+    var modelLoadMemoryImpact by remember { mutableStateOf(0f) }
 
-    val average by remember(benchmarkStats) { mutableStateOf(benchmarkStats.average) }
-    val onePctLow by remember(benchmarkStats) { mutableStateOf(benchmarkStats.onePctLow) }
-    val onePctHigh by remember(benchmarkStats) { mutableStateOf(benchmarkStats.onePctHigh) }
-    val hasStats by remember(benchmarkStats) {
-        mutableStateOf(benchmarkStats.tokensPerSecondHistory.isNotEmpty())
+    LaunchedEffect(Unit) {
+        viewModel.initResourceMonitor(context)
     }
-
 
     // Track tokens per second history and calculate statistics
     LaunchedEffect(viewModel.tokensPerSecondsFinal, viewModel.isBenchmarkingComplete) {
@@ -135,230 +141,325 @@ fun BenchMarkScreen(viewModel: MainViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(bottom = 16.dp),
-            elevation = 4.dp
+            colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
         ) {
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
                 deviceInfo.lines().forEach { line ->
-                    Text(line, modifier = Modifier.padding(vertical = 2.dp))
+                    Text(line, modifier = Modifier.padding(vertical = 2.dp), color = Color.White)
                 }
             }
         }
 
-
-        // Benchmark Button
-        androidx.compose.material3.Button(
-            modifier = Modifier.padding(vertical = 8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2563EB).copy(alpha = 1.0f),
-                contentColor = Color.White
-            ),
-            shape = RoundedCornerShape(8.dp),
-            elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 6.dp,
-                pressedElevation = 3.dp
-            ),
-            onClick = {
-                if(viewModel.loadedModelName.value == ""){
-                    Toast.makeText(context, "Load A Model First", Toast.LENGTH_SHORT).show()
-                }
-                else{
-                    // Reset benchmark stats when starting a new benchmark
-                    benchmarkStats = BenchmarkStats()
-                    state = state.copy(showConfirmDialog = true)
-                }
-            },
-            enabled = !state.isRunning,
-        ) {
-            Text(if (state.isRunning) "Benchmarking..." else "Start Benchmark", color = Color.White)
-        }
-
-        // Progress Indicator
-        if (state.isRunning) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(16.dp)
-            ) {
-                CircularProgressIndicator()
-                Text(
-                    "Benchmarking in progress...",
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            }
-        }
-
-        // Token Per Second Speed Display
-        Text(
-            text = if (viewModel.tokensPerSecondsFinal > 0) {
-                "Tokens per second: %.2f".format(viewModel.tokensPerSecondsFinal)
-            } else {
-                "Calculating tokens per second..."
-            },
-            style = MaterialTheme.typography.body1,
-            color = Color.Green,
-            modifier = Modifier.padding(16.dp)
-        )
-
-        // Benchmark Statistics Card
-        if (hasStats) {
+        // Model Selection Section (only shown before benchmark starts)
+        if (!isBenchmarkStarted) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                elevation = 4.dp
+                    .padding(vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
                     Text(
-                        "Benchmark Statistics",
-                        style = MaterialTheme.typography.h6,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        "Select a model to benchmark",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
 
-                    // Use the safe formatting function
-                    Text(
-                        "Average: ${safeFormatDouble(average)} tokens/sec",
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-
-                    Text(
-                        "1% Lows: ${safeFormatDouble(onePctLow)} tokens/sec",
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-
-                    Text(
-                        "1% Highs: ${safeFormatDouble(onePctHigh)} tokens/sec",
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                }
-            }
-        }
-
-        // Tokens Per Second Graph
-        if (benchmarkStats.tokensPerSecondHistory.isNotEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp)
-                    .height(200.dp),
-                elevation = 4.dp
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "Tokens Per Second Over Time",
-                        style = MaterialTheme.typography.subtitle1,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(150.dp)
+                    LazyColumn(
+                        modifier = Modifier.height(200.dp)
                     ) {
-                        // Draw the graph
-                        TokensPerSecondGraph(
-                            dataPoints = benchmarkStats.tokensPerSecondHistory,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                }
-            }
-        }
+                        items(viewModel.allModels) { model ->
+                            val modelName = model["name"].toString()
+                            val modelExists = extFileDir?.let { File(it, modelName).exists() } ?: false
 
-        if (viewModel.resourceMetricsList.isNotEmpty()) {
-            ResourceMetricsCard(viewModel)
-        }
-
-        // Results Section
-        if (state.results.isNotEmpty()) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                elevation = 4.dp
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "Benchmark Results",
-                        style = MaterialTheme.typography.h6,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    state.results.forEach { result ->
-                        Text(
-                            result,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // Error Display
-        state.error?.let { error ->
-            Text(
-                error,
-                color = Color.Red,
-                modifier = Modifier.padding(16.dp)
-            )
-        }
-    }
-
-    // Confirmation Dialog
-    if (state.showConfirmDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                state = state.copy(showConfirmDialog = false)
-            },
-            title = { Text("Benchmarking Notice") },
-            text = { Text("This process will 30 seconds to 1 minute. Do you want to continue?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        state = state.copy(
-                            showConfirmDialog = false,
-                            isRunning = true,
-                            results = emptyList(),
-                            error = null
-                        )
-                        scope.launch {
-                            try {
-                                viewModel.myCustomBenchmark()
-
-                                // Update tokens per second after benchmarking
-                                state = state.copy(
-                                    results = viewModel.tokensList.toList() // Fetch tokens collected
-                                )
-                            } catch (e: Exception) {
-                                state = state.copy(
-                                    error = "Error: ${e.message}"
-                                )
-                            } finally {
-                                state = state.copy(isRunning = false)
+                            if (modelExists) {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 4.dp)
+                                        .clickable {
+                                            selectedModelForBenchmark = modelName
+                                        },
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (selectedModelForBenchmark == modelName)
+                                            Color(0xFF2563EB) else Color(0xff1e293b)
+                                    )
+                                ) {
+                                    Text(
+                                        text = modelName,
+                                        modifier = Modifier.padding(16.dp),
+                                        color = Color.White
+                                    )
+                                }
                             }
                         }
                     }
-                ) {
-                    Text("Start")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        state = state.copy(showConfirmDialog = false)
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            if (selectedModelForBenchmark != null) {
+                                isBenchmarkStarted = true
+                                benchmarkStage = "Preparing"
+                                Log.d("Benchmark", benchmarkStage)
+
+                                // Start the comprehensive benchmark process
+                                scope.launch {
+                                    try {
+                                        // Initialize resource monitor
+                                        viewModel.initResourceMonitor(context)
+
+                                        // Unload current model
+                                        benchmarkStage = "Unloading current model"
+                                        Log.d("Benchmark", benchmarkStage)
+                                        try {
+                                            viewModel.unload()
+                                            viewModel.loadedModelName.value = ""
+                                            delay(1000) // Give time for unloading to complete
+                                        } catch (e: Exception) {
+                                            Log.e("Benchmark", "Error unloading model: ${e.message}")
+                                        }
+
+                                        // Force garbage collection for more accurate baseline
+                                        System.gc()
+                                        delay(500)  // Give GC time to complete
+
+                                        // Measure baseline memory
+                                        benchmarkStage = "Measuring baseline metrics"
+                                        Log.d("Benchmark", benchmarkStage)
+                                        val baselineMetrics = viewModel.resourceMonitor.collectMetrics()
+                                        viewModel.baselineMemoryUsage = baselineMetrics.memoryUsageMB
+                                        val baselineBatteryLevel = baselineMetrics.batteryLevel
+                                        val baselineBatteryTemp = baselineMetrics.batteryTemperature
+
+                                        // Load the selected model and measure time
+                                        benchmarkStage = "Loading model"
+                                        Log.d("Benchmark", benchmarkStage)
+                                        val loadStartTime = System.currentTimeMillis()
+
+                                        // Start collecting metrics during loading
+                                        viewModel.resourceMetricsList.clear()
+                                        val metricsJob = scope.launch {
+                                            while (benchmarkStage == "Loading model") {
+                                                val metrics = viewModel.resourceMonitor.collectMetrics()
+                                                viewModel.resourceMetricsList.add(metrics)
+                                                delay(200) // Sample every 200ms during loading
+                                            }
+                                        }
+
+                                        // Load the model
+                                        val modelPath = extFileDir?.let { File(it, selectedModelForBenchmark!!).path }
+                                        if (modelPath != null) {
+                                            viewModel.load(modelPath, viewModel.user_thread.toInt())
+
+                                            // Calculate load time
+                                            val loadEndTime = System.currentTimeMillis()
+                                            modelLoadTime = loadEndTime - loadStartTime
+
+                                            // Measure memory after loading
+                                            val postLoadMetrics = viewModel.resourceMonitor.collectMetrics()
+                                            modelLoadMemoryImpact = postLoadMetrics.memoryUsageMB - viewModel.baselineMemoryUsage
+
+                                            // Calculate peak memory during loading
+                                            viewModel.peakMemoryUsage = viewModel.resourceMetricsList
+                                                .maxOfOrNull { it.memoryUsageMB } ?: postLoadMetrics.memoryUsageMB
+
+                                            // Stop collecting loading metrics
+                                            metricsJob.cancel()
+
+                                            // Run the inference benchmark
+                                            benchmarkStage = "Running inference benchmark"
+                                            Log.d("Benchmark", benchmarkStage)
+                                            viewModel.resourceMetricsList.clear() // Clear for inference metrics
+                                            viewModel.tokensList.clear()
+                                            viewModel.startComprehensiveBenchmark(context, modelPath)
+
+
+                                            benchmarkStage = "Completed"
+                                            Log.d("Benchmark", benchmarkStage)
+                                        } else {
+                                            benchmarkStage = "Error: Model path is null"
+                                        }
+                                    } catch (e: Exception) {
+                                        benchmarkStage = "Error: ${e.message}"
+                                        Log.e("Benchmark", "Benchmark error: ${e.message}")
+                                    }
+                                }
+                            } else {
+                                Toast.makeText(context, "Please select a model first", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        enabled = selectedModelForBenchmark != null,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2563EB),
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Start Benchmark")
                     }
-                ) {
-                    Text("Cancel")
                 }
             }
-        )
+        } else {
+            // Benchmark in progress or results
+            if (benchmarkStage != "Completed" && !viewModel.isBenchmarkingComplete) {
+                // Progress indicator
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF2563EB))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Benchmark in progress: $benchmarkStage",
+                            color = Color.White
+                        )
+                    }
+                }
+            } else {
+                // Model loading metrics
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Model Loading Metrics",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Load time: $modelLoadTime ms", color = Color.White)
+                        Text("Memory impact: ${modelLoadMemoryImpact.toInt()} MB", color = Color.White)
+                    }
+                }
+
+                // Inference metrics
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Inference Metrics",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Tokens per second: ${safeFormatDouble(viewModel.tokensPerSecondsFinal)}", color = Color.White)
+                        Text("CPU usage: ${safeFormatDouble(viewModel.averageResourceMetrics.cpuUsage.toDouble())}%", color = Color.White)
+                        Text("Peak memory: ${viewModel.peakMemoryUsage.toInt()} MB", color = Color.White)
+                    }
+                }
+
+                // Battery and temperature metrics
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            "Power Metrics",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Battery level: ${viewModel.averageResourceMetrics.batteryLevel}%", color = Color.White)
+                        Text("Battery temperature: ${safeFormatDouble(viewModel.averageResourceMetrics.batteryTemperature.toDouble())}°C", color = Color.White)
+                        Text("Battery current: ${viewModel.averageResourceMetrics.batteryCurrentDrawMa} mA", color = Color.White)
+                    }
+                }
+
+                // Tokens Per Second Graph
+                if (benchmarkStats.tokensPerSecondHistory.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .height(200.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                "Tokens Per Second Over Time",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(150.dp)
+                            ) {
+                                // Draw the graph
+                                TokensPerSecondGraph(
+                                    dataPoints = benchmarkStats.tokensPerSecondHistory,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Resource metrics graphs
+                if (viewModel.resourceMetricsList.isNotEmpty()) {
+                    ResourceMetricsCard(viewModel)
+                }
+
+                // Run another benchmark button
+                androidx.compose.material3.Button(
+                    onClick = {
+                        isBenchmarkStarted = false
+                        selectedModelForBenchmark = null
+                        benchmarkStats = BenchmarkStats()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2563EB),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Text("Run Another Benchmark")
+                }
+            }
+        }
     }
 }
 
+// Keep the existing graph components
 @Composable
 fun TokensPerSecondGraph(
     dataPoints: List<Double>,
     modifier: Modifier = Modifier
 ) {
+    // Existing implementation
     if (dataPoints.isEmpty()) return
 
     // Safe calculation of min/max values
@@ -463,6 +564,7 @@ fun TokensPerSecondGraph(
 
 @Composable
 fun ResourceMetricsCard(viewModel: MainViewModel) {
+    // Existing implementation
     val averageMetrics = viewModel.averageResourceMetrics
     val resourceHistory = remember {
         mutableStateOf(
@@ -489,12 +591,14 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 16.dp),
-        elevation = 4.dp
+        colors = CardDefaults.cardColors(containerColor = Color(0xff0f172a))
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 "Resource Usage (During Benchmark)",
-                style = MaterialTheme.typography.h6,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
 
@@ -502,7 +606,8 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
             Text(
                 "CPU Usage: ${safeFormatDouble(averageMetrics.cpuUsage.toDouble())}% " +
                         "(${if (averageMetrics.cpuUsage < 1f) "Very low - may need permissions" else "Normal"})",
-                modifier = Modifier.padding(vertical = 4.dp)
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = Color.White
             )
 
             // Memory Usage with percentage
@@ -514,26 +619,31 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
                 "Memory: ${safeFormatDouble(averageMetrics.memoryUsageMB.toDouble())} MB / " +
                         "${safeFormatDouble(averageMetrics.totalMemoryMB.toDouble())} MB " +
                         "(${safeFormatDouble(memPercent)}%)",
-                modifier = Modifier.padding(vertical = 4.dp)
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = Color.White
             )
 
             // Battery Temperature
             Text(
                 "Battery Temperature: ${safeFormatDouble(averageMetrics.batteryTemperature.toDouble())}°C",
-                modifier = Modifier.padding(vertical = 4.dp)
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = Color.White
             )
 
             // Battery Current Draw
             Text(
                 "Battery Current: ${averageMetrics.batteryCurrentDrawMa} mA",
-                modifier = Modifier.padding(vertical = 4.dp)
+                modifier = Modifier.padding(vertical = 4.dp),
+                color = Color.White
             )
 
             // CPU Usage Graph
             if (resourceHistory.value.cpuHistory.isNotEmpty()) {
                 Text(
                     "CPU Usage Over Time",
-                    style = MaterialTheme.typography.subtitle1,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                 )
 
@@ -550,7 +660,9 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
             if (resourceHistory.value.memoryHistory.isNotEmpty()) {
                 Text(
                     "Memory Usage Over Time (MB)",
-                    style = MaterialTheme.typography.subtitle1,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                 )
 
@@ -567,7 +679,9 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
             if (resourceHistory.value.temperatureHistory.isNotEmpty()) {
                 Text(
                     "Temperature Over Time (°C)",
-                    style = MaterialTheme.typography.subtitle1,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                 )
 
@@ -584,7 +698,9 @@ fun ResourceMetricsCard(viewModel: MainViewModel) {
             if (resourceHistory.value.batteryDrawHistory.isNotEmpty()) {
                 Text(
                     "Battery Current Draw Over Time (mA)",
-                    style = MaterialTheme.typography.subtitle1,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
                 )
 
@@ -606,6 +722,7 @@ fun ResourceGraph(
     color: Color,
     modifier: Modifier = Modifier
 ) {
+    // Existing implementation
     if (dataPoints.isEmpty()) return
 
     // Safe calculation of min/max values

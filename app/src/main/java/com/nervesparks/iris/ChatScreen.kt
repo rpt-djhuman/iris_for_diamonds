@@ -345,7 +345,7 @@ fun ChatScreen(
                     AboutScreen()
                 }
                 composable(route = ChatScreen.BenchMarkScreen.name){
-                    BenchMarkScreen(viewModel)
+                    BenchMarkScreen(viewModel, dm = downloadManager, extFileDir = extFileDir)
                 }
             }
         }
