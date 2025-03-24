@@ -84,6 +84,16 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
         viewModel.initResourceMonitor(context)
     }
 
+// Add this near the top of the BenchMarkScreen composable function
+    LaunchedEffect(viewModel.modelLoadMemoryImpact, viewModel.modelLoadTime, viewModel.isBenchmarkingComplete) {
+        modelLoadMemoryImpact = viewModel.modelLoadMemoryImpact
+        modelLoadTime = viewModel.modelLoadTime
+
+        if (viewModel.isBenchmarkingComplete) {
+            benchmarkStage = "Completed"
+        }
+    }
+
     // Track tokens per second history and calculate statistics
     LaunchedEffect(viewModel.tokensPerSecondsFinal, viewModel.isBenchmarkingComplete) {
         try {
@@ -207,82 +217,19 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
                             if (selectedModelForBenchmark != null) {
                                 isBenchmarkStarted = true
                                 benchmarkStage = "Preparing"
-                                Log.d("Benchmark", benchmarkStage)
 
                                 // Start the comprehensive benchmark process
                                 scope.launch {
                                     try {
-                                        // Initialize resource monitor
-                                        viewModel.initResourceMonitor(context)
-
-                                        // Unload current model
-                                        benchmarkStage = "Unloading current model"
-                                        Log.d("Benchmark", benchmarkStage)
-                                        try {
-                                            viewModel.unload()
-                                            viewModel.loadedModelName.value = ""
-                                            delay(1000) // Give time for unloading to complete
-                                        } catch (e: Exception) {
-                                            Log.e("Benchmark", "Error unloading model: ${e.message}")
-                                        }
-
-                                        // Force garbage collection for more accurate baseline
-                                        System.gc()
-                                        delay(500)  // Give GC time to complete
-
-                                        // Measure baseline memory
-                                        benchmarkStage = "Measuring baseline metrics"
-                                        Log.d("Benchmark", benchmarkStage)
-                                        val baselineMetrics = viewModel.resourceMonitor.collectMetrics()
-                                        viewModel.baselineMemoryUsage = baselineMetrics.memoryUsageMB
-                                        val baselineBatteryLevel = baselineMetrics.batteryLevel
-                                        val baselineBatteryTemp = baselineMetrics.batteryTemperature
-
-                                        // Load the selected model and measure time
-                                        benchmarkStage = "Loading model"
-                                        Log.d("Benchmark", benchmarkStage)
-                                        val loadStartTime = System.currentTimeMillis()
-
-                                        // Start collecting metrics during loading
-                                        viewModel.resourceMetricsList.clear()
-                                        val metricsJob = scope.launch {
-                                            while (benchmarkStage == "Loading model") {
-                                                val metrics = viewModel.resourceMonitor.collectMetrics()
-                                                viewModel.resourceMetricsList.add(metrics)
-                                                delay(200) // Sample every 200ms during loading
-                                            }
-                                        }
-
-                                        // Load the model
                                         val modelPath = extFileDir?.let { File(it, selectedModelForBenchmark!!).path }
                                         if (modelPath != null) {
-                                            viewModel.load(modelPath, viewModel.user_thread.toInt())
-
-                                            // Calculate load time
-                                            val loadEndTime = System.currentTimeMillis()
-                                            modelLoadTime = loadEndTime - loadStartTime
-
-                                            // Measure memory after loading
-                                            val postLoadMetrics = viewModel.resourceMonitor.collectMetrics()
-                                            modelLoadMemoryImpact = postLoadMetrics.memoryUsageMB - viewModel.baselineMemoryUsage
-
-                                            // Calculate peak memory during loading
-                                            viewModel.peakMemoryUsage = viewModel.resourceMetricsList
-                                                .maxOfOrNull { it.memoryUsageMB } ?: postLoadMetrics.memoryUsageMB
-
-                                            // Stop collecting loading metrics
-                                            metricsJob.cancel()
-
-                                            // Run the inference benchmark
-                                            benchmarkStage = "Running inference benchmark"
-                                            Log.d("Benchmark", benchmarkStage)
-                                            viewModel.resourceMetricsList.clear() // Clear for inference metrics
-                                            viewModel.tokensList.clear()
+                                            // Use the centralized benchmark method from ViewModel
                                             viewModel.startComprehensiveBenchmark(context, modelPath)
 
-
-                                            benchmarkStage = "Completed"
-                                            Log.d("Benchmark", benchmarkStage)
+                                            // Update local variables from ViewModel for UI display
+                                            modelLoadTime = viewModel.modelLoadTime
+                                            modelLoadMemoryImpact = viewModel.modelLoadMemoryImpact
+                                            benchmarkStage = viewModel.benchmarkStage
                                         } else {
                                             benchmarkStage = "Error: Model path is null"
                                         }

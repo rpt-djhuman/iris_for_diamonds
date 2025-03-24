@@ -648,7 +648,8 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
         llamaAndroid.stopTextGeneration()
     }
 
-    fun startComprehensiveBenchmark(context: Context, modelPath: String) {
+    // In MainViewModel.kt
+    fun startComprehensiveBenchmark(context: Context, modelPath: String? = null) {
         viewModelScope.launch {
             isBenchmarkInProgress = true
             benchmarkStage = "Preparing"
@@ -659,38 +660,37 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                 resourceMonitor = ResourceMonitor(context)
             }
 
-            // 1. Force garbage collection to get more accurate baseline
-            System.gc()
-            delay(500)  // Give GC time to complete
-
-            // 2. Measure baseline memory and battery before model loading
-            benchmarkStage = "Measuring baseline metrics"
-            val baselineMetrics = resourceMonitor.collectMetrics()
-            baselineMemoryUsage = baselineMetrics.memoryUsageMB
-            val baselineBatteryLevel = baselineMetrics.batteryLevel
-            val baselineBatteryTemp = baselineMetrics.batteryTemperature
-
-            Log.d("Benchmark", "Baseline memory: $baselineMemoryUsage MB")
-            Log.d("Benchmark", "Baseline battery: $baselineBatteryLevel%")
-            Log.d("Benchmark", "Baseline temperature: $baselineBatteryTemp°C")
-
-            // 3. Unload any currently loaded model
-            benchmarkStage = "Unloading current model"
             try {
-                llamaAndroid.unload()
-                loadedModelName.value = ""
-                delay(500) // Give time for unloading to complete
-            } catch (e: Exception) {
-                Log.e("Benchmark", "Error unloading model: ${e.message}")
-            }
 
-            // 4. Measure model load time and memory impact
-            benchmarkStage = "Loading model"
-            val loadStartTime = System.currentTimeMillis()
+                // 2. Unload any currently loaded model
+                benchmarkStage = "Unloading current model"
+                try {
+                    llamaAndroid.unload()
+                    loadedModelName.value = ""
+                    delay(1000) // Give time for unloading to complete
+                } catch (e: Exception) {
+                    Log.e("Benchmark", "Error unloading model: ${e.message}")
+                }
 
-            try {
+                // 1. Force garbage collection for more accurate baseline
+                System.gc()
+                delay(500)  // Give GC time to complete
+
+                // 3. Measure model load time and memory impact
+                benchmarkStage = "Measuring baseline metrics"
+                val baselineMetrics = resourceMonitor.collectMetrics()
+                baselineMemoryUsage = baselineMetrics.memoryUsageMB
+                val baselineBatteryLevel = baselineMetrics.batteryLevel
+                val baselineBatteryTemp = baselineMetrics.batteryTemperature
+
+                Log.d("Benchmark", "Baseline memory: $baselineMemoryUsage MB")
+
+
+                benchmarkStage = "Loading model"
+                val loadStartTime = System.currentTimeMillis()
+
                 // Start collecting metrics during loading
-                launch {
+                val metricsJob = launch {
                     while (benchmarkStage == "Loading model") {
                         val metrics = resourceMonitor.collectMetrics()
                         resourceMetricsList.add(metrics)
@@ -698,69 +698,85 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                     }
                 }
 
-                // Load the model with standard parameters
-                llamaAndroid.load(modelPath, userThreads = user_thread.toInt(), topK = topK, topP = topP, temp = temp)
+                // Load the model
+                if (modelPath != null) {
+                    // Load the model with standard parameters
+                    llamaAndroid.load(modelPath, userThreads = user_thread.toInt(), topK = topK, topP = topP, temp = temp)
 
-                // Update model info
-                loadedModelPath = modelPath
-                val modelName = modelPath.split("/").last()
-                loadedModelName.value = modelName
+                    // Update model info
+                    loadedModelPath = modelPath
+                    val modelName = modelPath.split("/").last()
+                    loadedModelName.value = modelName
 
-                // Calculate load time
-                val loadEndTime = System.currentTimeMillis()
-                modelLoadTime = loadEndTime - loadStartTime
+                    // Calculate load time
+                    val loadEndTime = System.currentTimeMillis()
+                    modelLoadTime = loadEndTime - loadStartTime
 
-                // Measure memory after loading
-                val postLoadMetrics = resourceMonitor.collectMetrics()
-                modelLoadMemoryImpact = postLoadMetrics.memoryUsageMB - baselineMemoryUsage
+                    // Add small delay to ensure data has time to stabilise
+                    delay(1000)
 
-                // Calculate peak memory during loading
-                peakMemoryUsage = resourceMetricsList
-                    .maxOfOrNull { it.memoryUsageMB } ?: postLoadMetrics.memoryUsageMB
+                    // Measure memory after loading
+                    val postLoadMetrics = resourceMonitor.collectMetrics()
+                    modelLoadMemoryImpact = postLoadMetrics.memoryUsageMB - baselineMemoryUsage
 
-                Log.d("Benchmark", "Model load time: $modelLoadTime ms")
-                Log.d("Benchmark", "Model memory impact: $modelLoadMemoryImpact MB")
-                Log.d("Benchmark", "Peak memory during loading: $peakMemoryUsage MB")
+                    // Add debug logging
+                    Log.d("Benchmark", "Baseline memory: $baselineMemoryUsage MB")
+                    Log.d("Benchmark", "Post-load memory: ${postLoadMetrics.memoryUsageMB} MB")
+                    Log.d("Benchmark", "Memory impact: $modelLoadMemoryImpact MB")
 
-                // 5. Now proceed with the inference benchmark
-                benchmarkStage = "Running inference benchmark"
-                resourceMetricsList.clear() // Clear for inference metrics
-                tokensList.clear()
-                benchmarkStartTime = System.currentTimeMillis()
-                isBenchmarkingComplete = false
+                    // Calculate peak memory during loading
+                    peakMemoryUsage = resourceMetricsList
+                        .maxOfOrNull { it.memoryUsageMB } ?: postLoadMetrics.memoryUsageMB
 
-                // Launch a coroutine to update metrics every second during inference
-                launch {
-                    while (!isBenchmarkingComplete) {
-                        delay(1000L)
-                        val metrics = resourceMonitor.collectMetrics()
-                        resourceMetricsList.add(metrics)
+                    // Stop collecting loading metrics
+                    metricsJob.cancel()
 
-                        // Update peak memory if current usage is higher
-                        if (metrics.memoryUsageMB > peakMemoryUsage) {
-                            peakMemoryUsage = metrics.memoryUsageMB
+                    Log.d("Benchmark", "Model load time: $modelLoadTime ms")
+                    Log.d("Benchmark", "Model memory impact: $modelLoadMemoryImpact MB")
+
+                    // 4. Now proceed with the inference benchmark
+                    benchmarkStage = "Running inference benchmark"
+                    resourceMetricsList.clear() // Clear for inference metrics
+                    tokensList.clear()
+                    benchmarkStartTime = System.currentTimeMillis()
+                    isBenchmarkingComplete = false
+
+                    // Launch a coroutine to update metrics every second during inference
+                    launch {
+                        while (!isBenchmarkingComplete) {
+                            delay(1000L)
+                            val metrics = resourceMonitor.collectMetrics()
+                            resourceMetricsList.add(metrics)
+
+                            // Update peak memory if current usage is higher
+                            if (metrics.memoryUsageMB > peakMemoryUsage) {
+                                peakMemoryUsage = metrics.memoryUsageMB
+                            }
+
+                            // Calculate tokens per second
+                            val elapsedTime = System.currentTimeMillis() - benchmarkStartTime
+                            if (elapsedTime > 0) {
+                                tokensPerSecondsFinal = tokensList.size.toDouble() / (elapsedTime / 1000.0)
+                            }
+
+                            // Update average metrics
+                            updateAverageResourceMetrics()
                         }
-
-                        // Calculate tokens per second
-                        val elapsedTime = System.currentTimeMillis() - benchmarkStartTime
-                        if (elapsedTime > 0) {
-                            tokensPerSecondsFinal = tokensList.size.toDouble() / (elapsedTime / 1000.0)
-                        }
-
-                        // Update average metrics
-                        updateAverageResourceMetrics()
                     }
+
+                    // Run the actual benchmark
+                    llamaAndroid.myCustomBenchmark()
+                        .collect { emittedString ->
+                            if (emittedString != null) {
+                                tokensList.add(emittedString)
+                            }
+                        }
+
+                    benchmarkStage = "Completed"
+                } else {
+                    benchmarkStage = "Error: Model path is null"
+                    Log.e("Benchmark", "Model path is null")
                 }
-
-                // Run the actual benchmark
-                llamaAndroid.myCustomBenchmark()
-                    .collect { emittedString ->
-                        if (emittedString != null) {
-                            tokensList.add(emittedString)
-                        }
-                    }
-
-                benchmarkStage = "Completed"
             } catch (e: Exception) {
                 benchmarkStage = "Error: ${e.message}"
                 Log.e("Benchmark", "Benchmark error: ${e.message}")
@@ -770,14 +786,6 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
                 // Final metrics update
                 updateAverageResourceMetrics()
-
-                // Calculate battery impact
-                val finalMetrics = resourceMonitor.collectMetrics()
-                val batteryImpact = baselineBatteryLevel - finalMetrics.batteryLevel
-                val tempIncrease = finalMetrics.batteryTemperature - baselineBatteryTemp
-
-                Log.d("Benchmark", "Battery impact: $batteryImpact%")
-                Log.d("Benchmark", "Temperature increase: $tempIncrease°C")
             }
         }
     }
