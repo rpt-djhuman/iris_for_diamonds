@@ -87,7 +87,29 @@ class ResourceMonitor(private val context: Context) {
         }
     }
 
-    private fun getMemoryUsage(): Float {
+    private fun getNativeMemoryUsage(): Float {
+        try {
+            // Read from /proc/self/status to get VmRSS
+            val file = File("/proc/self/status")
+            if (file.exists()) {
+                val lines = file.readLines()
+                for (line in lines) {
+                    if (line.startsWith("VmRSS:")) {
+                        // Extract the value in kB
+                        val parts = line.split("\\s+".toRegex())
+                        if (parts.size >= 2) {
+                            return parts[1].toFloat() / 1024f // Convert kB to MB
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ResourceMonitor", "Error getting native memory: ${e.message}")
+        }
+        return 0f
+    }
+
+    private fun getJavaMemoryUsage(): Float {
         try {
             // Get memory info for our process
             val memInfo = ActivityManager.MemoryInfo()
@@ -114,6 +136,17 @@ class ResourceMonitor(private val context: Context) {
             val runtime = Runtime.getRuntime()
             return (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024).toFloat()
         }
+    }
+
+    private fun getMemoryUsage(): Float {
+        val javaMemory = getJavaMemoryUsage() // Rename current method
+        val nativeMemory = getNativeMemoryUsage()
+
+        // Log both for debugging
+        Log.d("ResourceMonitor", "Java memory: $javaMemory MB, Native memory: $nativeMemory MB")
+
+        // Return the larger of the two or their sum depending on your needs
+        return maxOf(javaMemory, nativeMemory)
     }
 
     private fun getTotalMemory(): Float {
