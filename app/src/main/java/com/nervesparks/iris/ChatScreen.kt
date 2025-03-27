@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
@@ -168,10 +169,25 @@ fun ChatScreenAppBar(
                         kc?.hide()
                         viewModel.stop()
                         viewModel.clear()
+
+                        // Add visual feedback
+                        // 1. Show toast notification
+                        Toast.makeText(context, "New chat started", Toast.LENGTH_SHORT).show()
+
+                        // 2. Add haptic feedback (vibration)
+                        provideHapticFeedback(context)
+
+                        // 3. Add animation to the icon (using the same rotation animation logic)
+                        rotationAngle += 360f
                     }
                 ) {
                     Icon(
-                        modifier = Modifier.size(25.dp),
+                        modifier = Modifier
+                            .size(25.dp)
+                            .graphicsLayer {
+                                // Apply the same rotation animation used for the refresh button
+                                rotationZ = if (currentScreen == ChatScreen.Start) animatedRotationAngle else 0f
+                            },
                         painter = painterResource(id = R.drawable.edit_3_svgrepo_com),
                         contentDescription = "newChat",
                         tint = Color.White
