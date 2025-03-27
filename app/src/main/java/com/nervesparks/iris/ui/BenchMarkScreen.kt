@@ -197,7 +197,8 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
             "Benchmark Information",
             style = MaterialTheme.typography.h6,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 16.dp),
+            color = Color.White
         )
 
         // Device Info Card
