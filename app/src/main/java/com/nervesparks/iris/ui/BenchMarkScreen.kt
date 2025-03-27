@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material3.ButtonDefaults
@@ -29,19 +28,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nervesparks.iris.MainViewModel
 import kotlinx.coroutines.launch
-import kotlin.math.min
 import android.app.DownloadManager
 import android.util.Log
 import androidx.compose.ui.graphics.nativeCanvas
-import kotlinx.coroutines.delay
 import java.io.File
+import android.os.Environment
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import java.util.Locale
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.remember
+import java.text.SimpleDateFormat
+import java.util.Date
 
-data class BenchmarkState(
-    val isRunning: Boolean = false,
-    val showConfirmDialog: Boolean = false,
-    val results: List<String> = emptyList(),
-    val error: String? = null
-)
+//data class BenchmarkState(
+//    val isRunning: Boolean = false,
+//    val showConfirmDialog: Boolean = false,
+//    val results: List<String> = emptyList(),
+//    val error: String? = null
+//)
 
 data class BenchmarkStats(
     val average: Double = 0.0,
@@ -132,6 +141,49 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
     }
 
     val deviceInfo = buildDeviceInfo(viewModel)
+
+    val saveLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                val csvContent = generateBenchmarkCsv(viewModel, deviceInfo, benchmarkStats)
+
+                // Write to the selected URI
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    outputStream.write(csvContent.toByteArray())
+                }
+
+                Toast.makeText(
+                    context,
+                    "Benchmark results saved successfully",
+                    Toast.LENGTH_LONG
+                ).show()
+            } catch (e: Exception) {
+                Log.e("BenchMarkScreen", "Error saving benchmark results: ${e.message}", e)
+                Toast.makeText(
+                    context,
+                    "Error saving benchmark results: ${e.message}",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    val requestPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission granted, save to downloads folder
+            saveToDownloadsFolder(context, viewModel, deviceInfo, benchmarkStats)
+        } else {
+            Toast.makeText(
+                context,
+                "Permission denied. Cannot save benchmark results.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -474,6 +526,39 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
                     )
                 ) {
                     Text("Run Another Benchmark")
+                }
+                if (viewModel.isBenchmarkingComplete && benchmarkStats.tokensPerSecondHistory.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    androidx.compose.material3.Button(
+                        onClick = {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                // For Android 10+ use Storage Access Framework
+                                val fileName = "benchmark_${viewModel.loadedModelName.value.replace(" ", "_")}_${System.currentTimeMillis()}.csv"
+                                saveLauncher.launch(fileName)
+                            } else {
+                                // For older Android versions, check and request permission
+                                if (ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.WRITE_EXTERNAL_STORAGE
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                ) {
+                                    saveToDownloadsFolder(context, viewModel, deviceInfo, benchmarkStats)
+                                } else {
+                                    requestPermissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF10B981), // Green color for download button
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text("Download Benchmark Results")
+                    }
                 }
             }
         }
@@ -894,6 +979,137 @@ private fun buildDeviceInfo(viewModel: MainViewModel): String {
         append("Available Threads: ${Runtime.getRuntime().availableProcessors()}\n")
         append("Current Model: ${viewModel.loadedModelName.value ?: "N/A"}\n")
         append("User Threads: ${viewModel.user_thread}")
+    }
+}
+
+// Add this function to BenchMarkScreen.kt
+// Update the generateBenchmarkCsv function to fix the formatting issue
+private fun generateBenchmarkCsv(
+    viewModel: MainViewModel,
+    deviceInfo: String,
+    benchmarkStats: BenchmarkStats
+): String {
+    val sb = StringBuilder()
+
+    // Add header with device info
+    sb.appendLine("# Benchmark Results")
+    deviceInfo.lines().forEach { line ->
+        sb.appendLine("# $line")
+    }
+    sb.appendLine("# Model: ${viewModel.loadedModelName.value}")
+    sb.appendLine("# Date: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
+    sb.appendLine()
+
+    // Add summary statistics - use US locale for consistent decimal formatting
+    sb.appendLine("## Summary")
+    sb.appendLine("Model Load Time (ms),${viewModel.modelLoadTime}")
+    sb.appendLine("Memory Impact (MB),${viewModel.modelLoadMemoryImpact.toInt()}")
+    sb.appendLine("Average Tokens/s,${String.format(Locale.US, "%.2f", benchmarkStats.average)}")
+    sb.appendLine("1% Low Tokens/s,${String.format(Locale.US, "%.2f", benchmarkStats.onePctLow)}")
+    sb.appendLine("1% High Tokens/s,${String.format(Locale.US, "%.2f", benchmarkStats.onePctHigh)}")
+    sb.appendLine("Total Tokens,${viewModel.tokensList.size}")
+    sb.appendLine()
+
+    // Add time series data headers
+    sb.appendLine("## Time Series Data")
+    sb.appendLine("Time (s),Tokens/s,Memory (MB),Battery Temp (C),Battery Current (mA)")
+
+    // Add time series data
+    val tokensData = benchmarkStats.tokensPerSecondHistory
+    val memoryData = viewModel.resourceMetricsList.map { it.memoryUsageMB }
+    val tempData = viewModel.resourceMetricsList.map { it.batteryTemperature }
+    val currentData = viewModel.resourceMetricsList.map { it.batteryCurrentDrawMa }
+
+    // Use the shortest list length to avoid index out of bounds
+    val dataPoints = minOf(
+        tokensData.size,
+        memoryData.size,
+        tempData.size,
+        currentData.size
+    )
+
+    for (i in 0 until dataPoints) {
+        // Use US locale and explicit formatting to ensure proper CSV format
+        sb.appendLine(
+            "${i+1}," +
+                    "${String.format(Locale.US, "%.2f", tokensData[i])}," +
+                    "${memoryData[i].toInt()}," +
+                    "${String.format(Locale.US, "%.1f", tempData[i])}," +
+                    "${currentData[i]}"
+        )
+    }
+
+    return sb.toString()
+}
+
+//private fun downloadBenchmarkResults(
+//    context: Context,
+//    viewModel: MainViewModel,
+//    deviceInfo: String,
+//    benchmarkStats: BenchmarkStats
+//) {
+//    try {
+//        val csvContent = generateBenchmarkCsv(viewModel, deviceInfo, benchmarkStats)
+//        val fileName = "benchmark_${viewModel.loadedModelName.value}_${System.currentTimeMillis()}.csv"
+//
+//        // Create file in Downloads directory
+//        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+//        val file = File(downloadsDir, fileName)
+//
+//        // Write CSV content to file
+//        file.writeText(csvContent)
+//
+//        // Show success message
+//        Toast.makeText(
+//            context,
+//            "Benchmark results saved to Downloads/$fileName",
+//            Toast.LENGTH_LONG
+//        ).show()
+//
+//    } catch (e: Exception) {
+//        Log.e("BenchMarkScreen", "Error saving benchmark results: ${e.message}", e)
+//        Toast.makeText(
+//            context,
+//            "Error saving benchmark results: ${e.message}",
+//            Toast.LENGTH_LONG
+//        ).show()
+//    }
+//}
+
+private fun saveToDownloadsFolder(
+    context: Context,
+    viewModel: MainViewModel,
+    deviceInfo: String,
+    benchmarkStats: BenchmarkStats
+) {
+    try {
+        val csvContent = generateBenchmarkCsv(viewModel, deviceInfo, benchmarkStats)
+        val fileName = "benchmark_${viewModel.loadedModelName.value.replace(" ", "_")}_${System.currentTimeMillis()}.csv"
+
+        // Create file in Downloads directory
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        if (!downloadsDir.exists()) {
+            downloadsDir.mkdirs()
+        }
+        val file = File(downloadsDir, fileName)
+
+        // Write CSV content to file
+        file.writeText(csvContent)
+
+        // Show success message
+        Toast.makeText(
+            context,
+            "Benchmark results saved to Downloads/$fileName",
+            Toast.LENGTH_LONG
+        ).show()
+
+    } catch (e: Exception) {
+        Log.e("BenchMarkScreen", "Error saving benchmark results: ${e.message}", e)
+        Toast.makeText(
+            context,
+            "Error saving benchmark results: ${e.message}",
+            Toast.LENGTH_LONG
+        ).show()
     }
 }
 
