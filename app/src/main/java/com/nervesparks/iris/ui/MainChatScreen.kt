@@ -66,7 +66,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SheetState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -107,13 +106,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
-import androidx.compose.ui.window.Dialog
 import com.nervesparks.iris.Downloadable
 import com.nervesparks.iris.LinearGradient
 import com.nervesparks.iris.MainViewModel
 
 import com.nervesparks.iris.R
-import com.nervesparks.iris.ui.components.ChatMessageList
 import com.nervesparks.iris.ui.components.DownloadModal
 import com.nervesparks.iris.ui.components.LoadingModal
 
@@ -149,7 +146,7 @@ fun MainChatScreen (
         "Recommend three books that can improve communication skills."
     )
 
-    val allModelsExist = models.all { model -> model.destination.exists() }
+    val anyModelExists = models.any { model -> model.destination.exists() }
     val Prompts_Home = listOf(
         "Explains complex topics simply.",
         "Remembers previous inputs.",
@@ -173,7 +170,7 @@ fun MainChatScreen (
     val focusRequester = FocusRequester()
     var isFocused by remember { mutableStateOf(false) }
     var textFieldBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    if (allModelsExist) {
+    if (anyModelExists) {
         viewModel.showModal = false
     }
     Box(
@@ -360,7 +357,7 @@ fun MainChatScreen (
                                                 if(role == "assistant") {
                                                     Image(
                                                         painter = painterResource(
-                                                            id = R.drawable.logo
+                                                            id = R.drawable.logo_bak
                                                         ),
                                                         contentDescription =  "Bot Icon",
                                                         modifier = Modifier.size(20.dp)

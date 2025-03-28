@@ -36,11 +36,11 @@ fun AboutScreen() {
             .padding(16.dp)
     ) {
         item {
-            SectionHeader(text = "Welcome to Iris")
+            SectionHeader(text = "Welcome to Iris for Diamonds")
         }
         item {
             Text(
-                text = "Iris is an offline Android chat application powered by the llama.cpp framework. Designed to operate entirely offline, it ensures privacy and independence from external servers. Whether you're a developer exploring AI applications or a privacy-conscious user, this app provides a seamless and secure way to experience conversational AI. Please note that the app may occasionally generate inaccurate results.",
+                text = "Iris for Diamonds is an offline Android chat application powered by the llama.cpp framework. It extends the original Iris app developed by NerveSparks to also provide structured data generation using templates, as well as extending benchmarking to be useful for users interested in how well models run on Android phones. Designed to operate entirely offline, it ensures privacy and independence from external servers. Whether you're a developer exploring AI applications or a privacy-conscious user, this app provides a seamless and secure way to experience conversational AI, as well as structured generations based on our Diamonds class of models. Please note that the app may occasionally generate inaccurate results.",
                 fontSize = 16.sp,
                 color = Color.White,
                 lineHeight = 24.sp
@@ -161,7 +161,9 @@ private fun FaqItem(
 private val features = listOf(
     "Offline Functionality: Runs without the need for an internet connection.",
     "Privacy First: All data is processed locally on your device.",
+    "Template-ready: Able to process and consume Templates for running Diamonds.",
     "Customizable Models: Download and use your preferred AI model with ease.",
+    "Comprehensive Benchmarks: Benchmark models for performance and resource usage.",
     "Open Source: Built on the foundations of the llama.cpp Android example, enabling developers to contribute and modify."
 )
 
@@ -170,6 +172,7 @@ private val faqs = listOf(
     "Do I need an internet connection to use this app?" to "Yes, but only to download models to your device. After that, the app operates entirely offline. All operations are performed locally on your device.",
     "Which AI models are supported?" to "The app supports GGUF models. You can download and integrate them as needed.",
     "Is my data safe while using this app?" to "Yes, since the app works offline, no data is transmitted to external servers, ensuring complete privacy.",
+    "Do you need to use a template to use the models?" to "No, you can use standard chat to use a model exactly as you would any other chat model.",
     "How do I change parameters?" to "You can adjust thread parameters to modify the text generation speed by navigating to:\n" +
             "Settings > Change Parameters > Modify the parameters > Save changes.",
     "How do I download models online?" to "You can download models from Hugging Face by providing the gguf model names:\n" +

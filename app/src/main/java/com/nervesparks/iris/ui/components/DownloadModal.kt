@@ -21,7 +21,7 @@ import com.nervesparks.iris.MainViewModel
 
 @Composable
 fun DownloadModal(viewModel: MainViewModel, dm: DownloadManager, models: List<Downloadable>) {
-    Dialog(onDismissRequest = {}) {
+    Dialog(onDismissRequest = {viewModel.showModal = false}) {
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = Color(0xFF233340),
@@ -46,6 +46,12 @@ fun DownloadModal(viewModel: MainViewModel, dm: DownloadManager, models: List<Do
                     items(models.filter { !it.destination.exists() }) { model ->
                         DownloadCard(viewModel, dm, model)
                     }
+                }
+                TextButton(
+                    onClick = { viewModel.showModal = false },
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("Back", color = Color.White)
                 }
             }
         }

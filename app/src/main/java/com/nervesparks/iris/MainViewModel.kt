@@ -193,26 +193,26 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     var newShowModal by mutableStateOf(false)
     var showDownloadInfoModal by mutableStateOf(false)
     var user_thread by mutableStateOf(0f)
-    var topP by mutableStateOf(0f)
-    var topK by mutableStateOf(0)
-    var temp by mutableStateOf(0f)
+    var topP by mutableStateOf(0.1f)
+    var topK by mutableStateOf(20)
+    var temp by mutableStateOf(0.3f)
 
     var allModels by mutableStateOf(
         listOf(
             mapOf(
-                "name" to "Llama-3.2-1B-Instruct-Q6_K_L.gguf",
-                "source" to "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q6_K_L.gguf?download=true",
-                "destination" to "Llama-3.2-1B-Instruct-Q6_K_L.gguf"
+                "name" to "Llama-3.2-1B 8-bit (Largest)",
+                "source" to "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q8_0.gguf?download=true",
+                "destination" to "Llama-3.2-1B-Instruct-Q8_0.gguf"
             ),
             mapOf(
-                "name" to "Llama-3.2-3B-Instruct-Q4_K_L.gguf",
-                "source" to "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_L.gguf?download=true",
-                "destination" to "Llama-3.2-3B-Instruct-Q4_K_L.gguf"
+                "name" to "Qwen2.5-0.5B 8-bit (Medium)",
+                "source" to "https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf?download=true",
+                "destination" to "qwen2.5-0.5b-instruct-q8_0.gguf"
             ),
             mapOf(
-                "name" to "stablelm-2-1_6b-chat.Q4_K_M.imx.gguf",
-                "source" to "https://huggingface.co/Crataco/stablelm-2-1_6b-chat-imatrix-GGUF/resolve/main/stablelm-2-1_6b-chat.Q4_K_M.imx.gguf?download=true",
-                "destination" to "stablelm-2-1_6b-chat.Q4_K_M.imx.gguf"
+                "name" to "SmolLM2-135M 8-bit (Smallest)",
+                "source" to "https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf?download=true",
+                "destination" to "SmolLM2-135M-Instruct-Q8_0.gguf"
             ),
 
             )
