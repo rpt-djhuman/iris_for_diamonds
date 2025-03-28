@@ -241,6 +241,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     fun loadExistingModels(directory: File) {
         // List models in the directory that end with .gguf
+        var anyModelExists = false
         directory.listFiles { file -> file.extension == "gguf" }?.forEach { file ->
             val modelName = file.name
             Log.i("This is the modelname", modelName)
@@ -250,6 +251,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                     "source" to "local",
                     "destination" to file.name
                 )
+                anyModelExists = true
             }
         }
 
@@ -261,6 +263,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                 if(loadedModelName.value == "") {
                     load(destinationPath.path, userThreads = user_thread.toInt())
                 }
+                anyModelExists = true
                 currentDownloadable = Downloadable(
                     loadedDefaultModel["name"].toString(),
                     Uri.parse(loadedDefaultModel["source"].toString()),
@@ -276,14 +279,17 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                     if(loadedModelName.value == "") {
                         load(destinationPath.path, userThreads = user_thread.toInt())
                     }
+                    anyModelExists = true
                     currentDownloadable = Downloadable(
                         model["name"].toString(),
                         Uri.parse(model["source"].toString()),
                         destinationPath
                     )
                 }
+                showModal = !anyModelExists
             }
         } else{
+            showModal = !anyModelExists
             allModels.find { model ->
                 val destinationPath = File(directory, model["destination"].toString())
                 destinationPath.exists()
@@ -369,7 +375,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
 
     var toggler by mutableStateOf(false)
-    var showModal by  mutableStateOf(true)
+    var showModal by  mutableStateOf(false)
     var showAlert by mutableStateOf(false)
     var switchModal by mutableStateOf(false)
     var currentDownloadable: Downloadable? by mutableStateOf(null)
