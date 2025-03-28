@@ -250,7 +250,7 @@ class LLamaAndroid {
             withTimeout(30.seconds) { // Set timeout to 2 minutes
                 when (val state = threadLocalState.get()) {
                     is State.Loaded -> {
-                        val ncur = IntVar(completion_init(state.context, state.batch, "Write an article on global warming in 1000 words", nlen))
+                        val ncur = IntVar(completion_init(state.context, state.batch, "Write an article on global warming in 1000 words:", nlen))
                         while (ncur.value <= nlen) {
                             val str = completion_loop(state.context, state.batch, state.sampler, nlen, ncur)
                             if (str == null) {

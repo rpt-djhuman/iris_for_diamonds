@@ -1,15 +1,5 @@
 package com.nervesparks.iris.ui.components
 
-import android.content.ClipboardManager
-import android.content.Context
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.SheetState
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.text.AnnotatedString
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -22,7 +12,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -76,7 +65,7 @@ private fun UserOrAssistantMessage(role: String, message: String, onLongClick: (
             .fillMaxWidth()
             .padding(8.dp)
     ) {
-        if (role == "assistant") MessageIcon(iconRes = R.drawable.logo, description = "Bot Icon")
+        if (role == "assistant") MessageIcon(iconRes = R.drawable.logo_bak, description = "Bot Icon")
 
         Box(
             modifier = Modifier

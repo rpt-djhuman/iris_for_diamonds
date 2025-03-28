@@ -155,20 +155,20 @@ class MainActivity(
 //
 //            ),
             Downloadable(
-                "Llama-3.2-3B-Instruct-Q4_K_L.gguf",
-                Uri.parse("https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_L.gguf?download=true"),
-                File(extFilesDir, "Llama-3.2-3B-Instruct-Q4_K_L.gguf")
+                "Llama-3.2-1B 8-bit (Largest)",
+                Uri.parse("https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q8_0.gguf?download=true"),
+                File(extFilesDir, "Llama-3.2-1B-Instruct-Q8_0.gguf")
 
             ),
             Downloadable(
-                "Llama-3.2-1B-Instruct-Q6_K_L.gguf",
-                Uri.parse("https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q6_K_L.gguf?download=true"),
-                File(extFilesDir, "Llama-3.2-1B-Instruct-Q6_K_L.gguf")
+                "Qwen2.5-0.5B 8-bit (Medium)",
+                Uri.parse("https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q8_0.gguf?download=true"),
+                File(extFilesDir, "qwen2.5-0.5b-instruct-q8_0.gguf")
             ),
             Downloadable(
-                "stablelm-2-1_6b-chat.Q4_K_M.imx.gguf",
-                Uri.parse("https://huggingface.co/Crataco/stablelm-2-1_6b-chat-imatrix-GGUF/resolve/main/stablelm-2-1_6b-chat.Q4_K_M.imx.gguf?download=true"),
-                File(extFilesDir, "stablelm-2-1_6b-chat.Q4_K_M.imx.gguf")
+                "SmolLM2-135M 8-bit (Smallest)",
+                Uri.parse("https://huggingface.co/unsloth/SmolLM2-135M-Instruct-GGUF/resolve/main/SmolLM2-135M-Instruct-Q8_0.gguf?download=true"),
+                File(extFilesDir, "SmolLM2-135M-Instruct-Q8_0.gguf")
             )
         )
 
@@ -225,7 +225,7 @@ class MainActivity(
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Image(
-                                        painter = painterResource(id = R.drawable.logo),
+                                        painter = painterResource(id = R.drawable.logo_bak),
                                         contentDescription = "Centered Background Logo",
                                         modifier = Modifier.size(35.dp),
                                         contentScale = ContentScale.Fit
@@ -295,13 +295,13 @@ class MainActivity(
                                             .clickable {
                                                 val intent = Intent(Intent.ACTION_VIEW).apply {
                                                     data =
-                                                        Uri.parse("https://github.com/rpt-djhuman/iris_android")
+                                                        Uri.parse("https://github.com/rpt-djhuman/iris_for_diamonds")
                                                 }
                                                 context.startActivity(intent)
                                             }
                                     ) {
                                         Text(
-                                            text = "Star us",
+                                            text = "Github",
                                             color = Color(0xFF78797a),
                                             fontSize = 14.sp
                                         )
@@ -348,7 +348,7 @@ class MainActivity(
                                             }
                                     ) {
                                         Text(
-                                            text = "NerveSparks.com",
+                                            text = "Original by NerveSparks",
                                             color = Color(0xFF78797a),
                                             fontSize = 14.sp
                                         )
