@@ -676,7 +676,7 @@ fun MainChatScreen (
                             IconButton(onClick = {
                                 if(viewModel.loadedModelName.value == ""){
                                     focusManager.clearFocus()
-                                    Toast.makeText(context, "Load A Model First", Toast.LENGTH_SHORT).show()
+                                    viewModel.showModal = true
                                 }
                                 else {
                                     viewModel.send()
