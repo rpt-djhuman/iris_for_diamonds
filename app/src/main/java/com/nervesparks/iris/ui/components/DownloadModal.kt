@@ -21,7 +21,7 @@ import com.nervesparks.iris.MainViewModel
 
 @Composable
 fun DownloadModal(viewModel: MainViewModel, dm: DownloadManager, models: List<Downloadable>) {
-    Dialog(onDismissRequest = { viewModel.showModal = false }) {
+    Dialog(onDismissRequest = { if (models.any { it.destination.exists() }) viewModel.showModal = false }) {
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = Color(0xFF233340),

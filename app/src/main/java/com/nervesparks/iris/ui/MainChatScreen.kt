@@ -146,7 +146,6 @@ fun MainChatScreen (
         "Recommend three books that can improve communication skills."
     )
 
-    val anyModelExists = models.any { model -> model.destination.exists() }
     val Prompts_Home = listOf(
         "Explains complex topics simply.",
         "Remembers previous inputs.",
@@ -163,16 +162,9 @@ fun MainChatScreen (
 
     }
 
-
-
-
-
     val focusRequester = FocusRequester()
     var isFocused by remember { mutableStateOf(false) }
     var textFieldBounds by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
-    if (anyModelExists) {
-        viewModel.showModal = false
-    }
     Box(
         modifier = Modifier.fillMaxSize()
 
