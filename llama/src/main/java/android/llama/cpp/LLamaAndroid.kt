@@ -243,6 +243,51 @@ class LLamaAndroid {
         _isSending.value = false
     }.flowOn(runLoop)
 
+    suspend fun sendRawPrompt(rawPrompt: String): Flow<String> = flow {
+        stopGeneration = false
+        _isSending.value = true
+        when (val state = threadLocalState.get()) {
+            is State.Loaded -> {
+                // Send the raw prompt directly to the model without any template formatting
+                val ncur = IntVar(completion_init(state.context, state.batch, rawPrompt, nlen))
+                var end_token_store = ""
+                var chat_len = 0
+                while (chat_len <= nlen && ncur.value < context_size && !stopGeneration) {
+                    _isSending.value = true
+                    val str = completion_loop(state.context, state.batch, state.sampler, nlen, ncur)
+                    chat_len += 1
+                    if (str == "```" || str == "``") {
+                        _isMarked.value = !_isMarked.value
+                    }
+                    if (str == null) {
+                        _isSending.value = false
+                        _isCompleteEOT.value = true
+                        break
+                    }
+                    end_token_store = end_token_store+str
+                    if((end_token_store.length > state.modelEotStr.length) and end_token_store.contains(state.modelEotStr)){
+                        _isSending.value = false
+                        _isCompleteEOT.value = false
+                        break
+                    }
+                    if((end_token_store.length/2) > state.modelEotStr.length ){
+                        end_token_store = end_token_store.slice(end_token_store.length/2..end_token_store.length-1)
+                    }
+
+                    if (stopGeneration) {
+                        break
+                    }
+                    emit(str)
+                }
+                kv_cache_clear(state.context)
+            }
+            else -> {
+                _isSending.value = false
+            }
+        }
+        _isSending.value = false
+    }.flowOn(runLoop)
+
 
 
     suspend fun myCustomBenchmark(): Flow<String> = flow {
