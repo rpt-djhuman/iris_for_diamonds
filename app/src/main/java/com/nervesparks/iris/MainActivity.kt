@@ -135,6 +135,7 @@ class MainActivity(
         val lLamaAndroid = LLamaAndroid.instance()
         val viewModelFactory = MainViewModelFactory(lLamaAndroid, userPrefsRepo)
         viewModel = ViewModelProvider(this, viewModelFactory)[MainViewModel::class.java]
+        viewModel.loadSavedTemplates()
 
 
 //        val free = Formatter.formatFileSize(this, availableMemory().availMem)

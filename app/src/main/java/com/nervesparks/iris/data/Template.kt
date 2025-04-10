@@ -43,6 +43,10 @@ data class Template(
     fun toInputJson(inputValues: Map<String, String>): String {
         return Gson().toJson(inputValues)
     }
+
+    fun toJson(): String {
+        return Gson().toJson(this)
+    }
 }
 
 data class TemplateField(
@@ -54,3 +58,12 @@ data class TemplateField(
     val options: List<String>? = null,
     @SerializedName("default_value") val defaultValue: String? = null  // Match JSON property name
 )
+
+
+//data class SavedTemplate(
+//    val id: String,  // Unique identifier
+//    val name: String,
+//    val description: String,
+//    val jsonContent: String,  // The raw JSON content of the template
+//    val savedDate: Long = System.currentTimeMillis()
+//)

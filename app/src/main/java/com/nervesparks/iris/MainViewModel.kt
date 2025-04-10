@@ -23,6 +23,7 @@ import java.io.File
 import java.util.Locale
 import java.util.UUID
 import com.nervesparks.iris.data.Template
+import com.nervesparks.iris.data.SavedTemplate
 import com.nervesparks.iris.utils.ResourceMetrics
 import com.nervesparks.iris.utils.ResourceMonitor
 import kotlinx.coroutines.flow.Flow
@@ -40,6 +41,9 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
     private val _currentTemplate = mutableStateOf<Template?>(null)
     val currentTemplate: State<Template?> = _currentTemplate
+
+    private val _savedTemplates = mutableStateOf<List<SavedTemplate>>(emptyList())
+    val savedTemplates: State<List<SavedTemplate>> = _savedTemplates
 
     public lateinit var resourceMonitor: ResourceMonitor
     var resourceMetricsList = mutableListOf<ResourceMetrics>()
@@ -104,8 +108,6 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
         return resourceMonitor.collectMetrics()
     }
 
-    // Add this function to MainViewModel.kt
-// Add this to MainViewModel.kt
     fun generateTemplateResponse(prompt: String, onResponse: (String) -> Unit) {
         viewModelScope.launch {
             val responseBuilder = StringBuilder()
@@ -832,6 +834,32 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
         // Reset benchmark state
         isBenchmarkingComplete = false
         benchmarkStage = "Not started"
+    }
+
+    fun loadSavedTemplates() {
+        _savedTemplates.value = userPreferencesRepository.getSavedTemplates()
+    }
+
+    fun saveCurrentTemplate(jsonContent: String): Boolean {
+        val template = currentTemplate.value ?: return false
+        val savedTemplate = userPreferencesRepository.saveTemplate(template, jsonContent)
+        loadSavedTemplates() // Refresh the list
+        return true
+    }
+
+    fun deleteSavedTemplate(templateId: String): Boolean {
+        val result = userPreferencesRepository.deleteSavedTemplate(templateId)
+        if (result) {
+            loadSavedTemplates() // Refresh the list
+        }
+        return result
+    }
+
+    fun loadSavedTemplate(savedTemplate: SavedTemplate) {
+        val template = Template.fromJson(savedTemplate.jsonContent)
+        if (template != null) {
+            setCurrentTemplate(template)
+        }
     }
 
 
