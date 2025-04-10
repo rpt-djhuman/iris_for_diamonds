@@ -47,20 +47,31 @@ fun TemplateChatScreen(
     var isGenerating by remember { mutableStateOf(false) }
     var showPrompt by remember { mutableStateOf(false) }
     var generatedPrompt by remember { mutableStateOf<String?>(null) }
+    var useDefaultValues by remember { mutableStateOf(mutableMapOf<String, Boolean>()) }
 
     val context = LocalContext.current
 
     // Initialize input values
     LaunchedEffect(template) {
         val initialValues = mutableMapOf<String, String>()
+        val initialDefaultFlags = mutableMapOf<String, Boolean>()
+
         template.input.forEach { field ->
+            // Initialize with default values for fields that have them
             initialValues[field.name] = when (field.type) {
                 "int" -> field.min?.toString() ?: "0"
                 "categorical" -> field.options?.firstOrNull() ?: ""
                 else -> ""
             }
+
+            // Initialize default value flags (false by default)
+            if (field.defaultValue != null) {
+                initialDefaultFlags[field.name] = false
+            }
         }
+
         inputValues = initialValues
+        useDefaultValues = initialDefaultFlags
     }
 
     fun validateInputs(): Boolean {
@@ -201,6 +212,46 @@ fun TemplateChatScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
+                    // Add checkbox for fields with default values
+                    if (field.defaultValue != null && field.type == "string") {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Checkbox(
+                                checked = useDefaultValues[field.name] ?: false,
+                                onCheckedChange = { isChecked ->
+                                    // Update the default value flag
+                                    useDefaultValues = useDefaultValues.toMutableMap().apply {
+                                        this[field.name] = isChecked
+                                    }
+
+                                    // If checked, populate with default value, otherwise clear
+                                    if (isChecked) {
+                                        inputValues = inputValues.toMutableMap().apply {
+                                            this[field.name] = field.defaultValue ?: ""
+                                        }
+                                    }
+                                },
+                                colors = CheckboxDefaults.colors(
+                                    checkedColor = Color(0xFF2563EB),
+                                    uncheckedColor = Color.Gray,
+                                    checkmarkColor = Color.White
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Text(
+                                text = "Use default value",
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    }
+
                     when (field.type) {
                         "categorical" -> {
                             // Dropdown for categorical fields
@@ -308,6 +359,13 @@ fun TemplateChatScreen(
                                         inputValues = inputValues.toMutableMap().apply {
                                             this[field.name] = newValue
                                         }
+
+                                        // If user manually changes the value, uncheck the "use default" checkbox
+                                        if (field.defaultValue != null && useDefaultValues[field.name] == true) {
+                                            useDefaultValues = useDefaultValues.toMutableMap().apply {
+                                                this[field.name] = false
+                                            }
+                                        }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
@@ -323,7 +381,8 @@ fun TemplateChatScreen(
                                 ),
                                 isError = error != null,
                                 singleLine = field.max != null && field.max < 100,
-                                maxLines = if (field.max != null && field.max > 100) 5 else 1
+                                maxLines = if (field.max != null && field.max > 100) 5 else 1,
+                                readOnly = useDefaultValues[field.name] == true // Make field read-only if using default value
                             )
                         }
                     }
