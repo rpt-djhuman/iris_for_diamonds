@@ -172,7 +172,23 @@ fun TemplateChatScreen(
                     containerColor = Color(0xFF0F172A),
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
-                )
+                ) ,
+                actions = {
+                    IconButton(
+                        onClick = {
+                            // Save the current template
+                            val jsonContent = template.toJson() // Add this method to Template class
+                            viewModel.saveCurrentTemplate(jsonContent)
+                            Toast.makeText(context, "Template saved", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Save,
+                            contentDescription = "Save template",
+                            tint = Color.White
+                        )
+                    }
+                }
             )
         },
         containerColor = Color(0xFF0F172A)
