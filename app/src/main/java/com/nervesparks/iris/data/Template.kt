@@ -51,5 +51,6 @@ data class TemplateField(
     val type: String,
     val min: Int? = null,
     val max: Int? = null,
-    val options: List<String>? = null
+    val options: List<String>? = null,
+    @SerializedName("default_value") val defaultValue: String? = null  // Match JSON property name
 )
