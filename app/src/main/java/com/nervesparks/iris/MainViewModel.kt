@@ -113,13 +113,8 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
             val responseBuilder = StringBuilder()
 
             try {
-                // Create a simple message list with just the user prompt
-                val singlePromptMessages = listOf(
-                    mapOf("role" to "user", "content" to prompt)
-                )
-
-                // Use the existing send method but with only the user prompt
-                llamaAndroid.send(llamaAndroid.getTemplate(singlePromptMessages))
+                // Send the raw JSON prompt directly without chat formatting
+                llamaAndroid.sendRawPrompt(prompt)
                     .catch { e ->
                         Log.e(tag, "generateTemplateResponse() failed", e)
                         onResponse("Error: ${e.message}")
