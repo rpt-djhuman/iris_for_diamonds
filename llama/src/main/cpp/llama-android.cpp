@@ -587,7 +587,11 @@ Java_android_llama_cpp_LLamaAndroid_kv_1cache_1clear(JNIEnv *, jobject, jlong co
 
 // Format given chat. If tmpl is empty, we take the template from model metadata
 inline std::string format_chat(const llama_model *model, const std::string &tmpl, const std::vector<json> &messages) {
+    std::vector<std::string> roles, contents;
     std::vector<llama_chat_message> chat;
+    roles.reserve(messages.size());
+    contents.reserve(messages.size());
+    chat.reserve(messages.size());
 
     for (size_t i = 0; i < messages.size(); ++i) {
         const auto &curr_msg = messages[i];
@@ -611,23 +615,30 @@ inline std::string format_chat(const llama_model *model, const std::string &tmpl
             throw std::runtime_error("Missing 'content'.");
         }
 
+        roles.push_back(role);
+        contents.push_back(content);
+
         llama_chat_message msg;
-        msg.role = role.c_str();
-        msg.content = content.c_str();
+        msg.role = roles[i].c_str();
+        msg.content = contents[i].c_str();
         chat.push_back(msg);
     }
-
     // Prepare buffer for the formatted chat prompt
-    std::vector<char> buf(4096); // Adjust size as needed
-
+    std::vector<char> buf(16384); // Increase buffer size
     int n_bytes = llama_chat_apply_template(
-            tmpl.empty() ? nullptr : tmpl.c_str(),
+            tmpl.empty() ? nullptr : tmpl.c_str(), // Use model metadata if tmpl is empty
             chat.data(),
             chat.size(),
             true, // add_ass
             buf.data(),
             buf.size()
     );
+
+    if (tmpl.empty()) {
+        LOGi("Using model metadata template");
+    } else {
+        LOGi("Using custom template: '%s'", tmpl.c_str());
+    }
 
     std::string formatted_chat(buf.data(), n_bytes);
     LOGi("formatted_chat: '%s'\n", formatted_chat.c_str());
