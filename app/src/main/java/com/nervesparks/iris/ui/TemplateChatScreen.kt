@@ -32,6 +32,8 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -115,46 +117,55 @@ fun TemplateChatScreen(
     }
 
     fun generatePrompt(): String {
-        // Create a JSON object from the input values
-        val jsonBuilder = StringBuilder()
-        jsonBuilder.append("{")
+        // Create a more compact JSON representation
+        val compactJson = StringBuilder("{")
 
-        // Add each field as a key-value pair
+        // Add each field as a key-value pair with minimal formatting
         inputValues.entries.forEachIndexed { index, (key, value) ->
-            // Add quotes around the key
-            jsonBuilder.append("\"$key\": ")
-
-            // Add quotes around string values
             val field = template.input.find { it.name == key }
+
+            // Add quotes around the key
+            compactJson.append("\"$key\":")
+
+            // Add value with appropriate type formatting
             when (field?.type) {
-                "int" -> jsonBuilder.append(value) // No quotes for numbers
-                else -> jsonBuilder.append("\"$value\"") // Quotes for strings and categorical
+                "int" -> compactJson.append(value) // No quotes for numbers
+                else -> compactJson.append("\"${value.replace("\"", "\\\"")}\"") // Escape quotes in strings
             }
 
             // Add comma if not the last item
             if (index < inputValues.size - 1) {
-                jsonBuilder.append(", ")
+                compactJson.append(",")
             }
         }
 
-        jsonBuilder.append("}")
-        return jsonBuilder.toString()
+        compactJson.append("}")
+        return compactJson.toString()
     }
 
     fun submitForm() {
         if (validateInputs()) {
+            // Set loading state immediately
             isSubmitting = true
             isGenerating = true
-            modelResponse = null
+            modelResponse = "Preparing..."  // Show immediate feedback
 
-            val prompt = generatePrompt()
-            generatedPrompt = prompt // Store the generated prompt
+            // Use a coroutine to prepare the JSON off the main thread
+            viewModel.viewModelScope.launch(Dispatchers.Default) {
+                val prompt = generatePrompt()
+                generatedPrompt = prompt
 
-            // Use the viewModel's scope
-            viewModel.generateTemplateResponse(prompt) { response ->
-                modelResponse = response
-                isGenerating = false
-                isSubmitting = false
+                // Update UI to show we're now processing
+                withContext(Dispatchers.Main) {
+                    modelResponse = "Processing..."
+                }
+
+                // Now call the generation function
+                viewModel.generateTemplateResponse(prompt) { response ->
+                    modelResponse = response
+                    isGenerating = false
+                    isSubmitting = false
+                }
             }
         }
     }

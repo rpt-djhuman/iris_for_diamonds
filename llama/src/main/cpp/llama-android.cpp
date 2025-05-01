@@ -168,7 +168,7 @@ Java_android_llama_cpp_LLamaAndroid_load_1model(JNIEnv *env, jobject, jstring fi
     auto path_to_model = env->GetStringUTFChars(filename, 0);
     LOGi("Loading model from %s", path_to_model);
 
-    auto model = llama_load_model_from_file(path_to_model, model_params);
+    auto model = llama_model_load_from_file(path_to_model, model_params);
     env->ReleaseStringUTFChars(filename, path_to_model);
 
     if (!model) {
@@ -183,7 +183,7 @@ Java_android_llama_cpp_LLamaAndroid_load_1model(JNIEnv *env, jobject, jstring fi
 extern "C"
 JNIEXPORT void JNICALL
 Java_android_llama_cpp_LLamaAndroid_free_1model(JNIEnv *, jobject, jlong model) {
-    llama_free_model(reinterpret_cast<llama_model *>(model));
+    llama_model_free(reinterpret_cast<llama_model *>(model));
 }
 
 extern "C"
@@ -209,7 +209,7 @@ Java_android_llama_cpp_LLamaAndroid_new_1context(JNIEnv *env, jobject, jlong jmo
     ctx_params.n_threads_batch = n_threads;
     LOGi("Checking my threads %d", ctx_params.n_threads);
 
-    llama_context * context = llama_new_context_with_model(model, ctx_params);
+    llama_context * context = llama_init_from_model(model, ctx_params);
 
     if (!context) {
         LOGe("llama_new_context_with_model() returned null)");
@@ -278,7 +278,7 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
         }
 
         batch->logits[batch->n_tokens - 1] = true;
-        llama_kv_cache_clear(context);
+        llama_kv_self_clear(context);
 
         const auto t_pp_start = ggml_time_us();
         if (llama_decode(context, *batch) != 0) {
@@ -290,7 +290,7 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
 
         LOGi("Benchmark text generation (tg)");
 
-        llama_kv_cache_clear(context);
+        llama_kv_self_clear(context);
         const auto t_tg_start = ggml_time_us();
         for (i = 0; i < tg; i++) {
 
@@ -307,7 +307,7 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
 
         const auto t_tg_end = ggml_time_us();
 
-        llama_kv_cache_clear(context);
+        llama_kv_self_clear(context);
 
         const auto t_pp = double(t_pp_end - t_pp_start) / 1000000.0;
         const auto t_tg = double(t_tg_end - t_tg_start) / 1000000.0;
@@ -491,7 +491,7 @@ Java_android_llama_cpp_LLamaAndroid_completion_1init(
     auto n_ctx = llama_n_ctx(context);
     auto n_kv_req = tokens_list.size() + (n_len - tokens_list.size());
 
-    LOGi("n_len = %d, n_ctx = %d, n_kv_req = %d", n_len, n_ctx, n_kv_req);
+    LOGi("n_len = %d, n_ctx = %d, n_kv_req = %zu", n_len, n_ctx, n_kv_req);
 
     if (n_kv_req > n_ctx) {
         LOGe("error: n_kv_req > n_ctx, the required KV cache size is not big enough");
@@ -542,13 +542,13 @@ Java_android_llama_cpp_LLamaAndroid_completion_1loop(
 
     // sample the most likely token
     const auto new_token_id = llama_sampler_sample(sampler, context, -1);
-
-    const auto eot = llama_token_eot(model);
+    const struct llama_vocab *vocab = llama_model_get_vocab(model);
+    const auto eot = llama_vocab_eot(vocab);
     LOGi("eot is: %d", eot);
     LOGi("new_token_id is: %d", new_token_id);
 
     const auto n_cur = env->CallIntMethod(intvar_ncur, la_int_var_value);
-    if (llama_token_is_eog(model, new_token_id) || n_cur == n_len || new_token_id == eot) {
+    if (llama_vocab_is_eog(vocab, new_token_id) || n_cur == n_len || new_token_id == eot) {
         return nullptr;
     }
 
@@ -582,12 +582,12 @@ Java_android_llama_cpp_LLamaAndroid_completion_1loop(
 extern "C"
 JNIEXPORT void JNICALL
 Java_android_llama_cpp_LLamaAndroid_kv_1cache_1clear(JNIEnv *, jobject, jlong context) {
-    llama_kv_cache_clear(reinterpret_cast<llama_context *>(context));
+    llama_kv_self_clear(reinterpret_cast<llama_context *>(context));
 }
 
 // Format given chat. If tmpl is empty, we take the template from model metadata
 inline std::string format_chat(const llama_model *model, const std::string &tmpl, const std::vector<json> &messages) {
-    std::vector<common_chat_msg> chat;
+    std::vector<llama_chat_message> chat;
 
     for (size_t i = 0; i < messages.size(); ++i) {
         const auto &curr_msg = messages[i];
@@ -611,15 +611,29 @@ inline std::string format_chat(const llama_model *model, const std::string &tmpl
             throw std::runtime_error("Missing 'content'.");
         }
 
-        chat.push_back({role, content});
+        llama_chat_message msg;
+        msg.role = role.c_str();
+        msg.content = content.c_str();
+        chat.push_back(msg);
     }
 
-    const auto formatted_chat = common_chat_apply_template(model, tmpl, chat, true);
+    // Prepare buffer for the formatted chat prompt
+    std::vector<char> buf(4096); // Adjust size as needed
+
+    int n_bytes = llama_chat_apply_template(
+            tmpl.empty() ? nullptr : tmpl.c_str(),
+            chat.data(),
+            chat.size(),
+            true, // add_ass
+            buf.data(),
+            buf.size()
+    );
+
+    std::string formatted_chat(buf.data(), n_bytes);
     LOGi("formatted_chat: '%s'\n", formatted_chat.c_str());
 
     return formatted_chat;
 }
-
 
 extern "C" JNIEXPORT jstring JNICALL
 Java_android_llama_cpp_LLamaAndroid_oaicompat_1completion_1param_1parse(
@@ -641,7 +655,8 @@ extern "C"
 JNIEXPORT jstring JNICALL
 Java_android_llama_cpp_LLamaAndroid_get_1eot_1str(JNIEnv *env, jobject , jlong jmodel) {
     auto model = reinterpret_cast<llama_model *>(jmodel);
-    const auto eot = llama_token_eot(model);
+    const struct llama_vocab *vocab = llama_model_get_vocab(model);
+    const auto eot = llama_vocab_eot(vocab);
 
     if (eot == -1){
         std::string piece = "<|im_end|>";
@@ -650,10 +665,10 @@ Java_android_llama_cpp_LLamaAndroid_get_1eot_1str(JNIEnv *env, jobject , jlong j
 
     std::string piece;
     piece.resize(piece.capacity());  // using string internal cache, 15 bytes + '\n'
-    const int n_chars = llama_token_to_piece(model, eot, &piece[0], piece.size(), 0, true);
+    const int n_chars = llama_token_to_piece(vocab, eot, &piece[0], piece.size(), 0, true);
     if (n_chars < 0) {
         piece.resize(-n_chars);
-        int check = llama_token_to_piece(model, eot, &piece[0], piece.size(), 0, true);
+        int check = llama_token_to_piece(vocab, eot, &piece[0], piece.size(), 0, true);
         GGML_ASSERT(check == -n_chars);
     }
     else {
