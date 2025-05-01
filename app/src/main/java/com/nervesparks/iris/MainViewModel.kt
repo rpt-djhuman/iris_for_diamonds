@@ -45,6 +45,8 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     private val _savedTemplates = mutableStateOf<List<SavedTemplate>>(emptyList())
     val savedTemplates: State<List<SavedTemplate>> = _savedTemplates
 
+    private var isTemplateModelWarmedUp = false
+
     public lateinit var resourceMonitor: ResourceMonitor
     var resourceMetricsList = mutableListOf<ResourceMetrics>()
     var averageResourceMetrics by mutableStateOf(ResourceMetrics())
