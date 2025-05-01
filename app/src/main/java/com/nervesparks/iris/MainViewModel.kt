@@ -412,6 +412,9 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
             viewModelScope.launch {
                 try {
+                    val prompt = llamaAndroid.getTemplate(messages)
+                    Log.d("Messages", messages.toString())
+                    Log.d("Prompt", prompt)
                     llamaAndroid.send(llamaAndroid.getTemplate(messages))
                         .catch {
                             Log.e(tag, "send() failed", it)

@@ -174,6 +174,7 @@ class LLamaAndroid {
 
     suspend fun getTemplate(messages: List<Map<String, String>>): String {
         var data = ""
+        Log.d("Received Messages", messages.toString())
         withContext(runLoop) {
             when (val state = threadLocalState.get()) {
                 is State.Loaded -> {
