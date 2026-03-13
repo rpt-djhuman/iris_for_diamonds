@@ -314,7 +314,51 @@ fun MainChatScreen (
                                 // Skip rendering first user and first assistant messages
 
                                 if (role != "system") {
-                                    if (role != "codeBlock") {
+                                    if (role == "thinking") {
+                                        var expanded by rememberSaveable { mutableStateOf(false) }
+                                        Card(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0D1117)),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .clickable { expanded = !expanded }
+                                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = if (viewModel.getIsSending() && index == viewModel.messages.size - 4) "Thinking…" else "Thought process",
+                                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                                            color = Color(0xFF6B7280),
+                                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                                        ),
+                                                        modifier = Modifier.weight(1f)
+                                                    )
+                                                    Icon(
+                                                        imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                                                        contentDescription = if (expanded) "Collapse" else "Expand",
+                                                        tint = Color(0xFF6B7280)
+                                                    )
+                                                }
+                                                AnimatedVisibility(visible = expanded) {
+                                                    SelectionContainer {
+                                                        Text(
+                                                            text = trimmedMessage,
+                                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                                color = Color(0xFF4B5563)
+                                                            ),
+                                                            modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else if (role != "codeBlock") {
                                         Box {
                                             val context = LocalContext.current
                                             val interactionSource = remember { MutableInteractionSource() }

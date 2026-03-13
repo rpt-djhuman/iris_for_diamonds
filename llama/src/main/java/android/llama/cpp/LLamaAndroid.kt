@@ -76,7 +76,7 @@ class LLamaAndroid {
         }
     }.asCoroutineDispatcher()
 
-    private val nlen: Int = 1024
+    private val nlen: Int = 4096
     private val context_size: Int = 4096
 
     private external fun log_to_android()

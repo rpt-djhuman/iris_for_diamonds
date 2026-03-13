@@ -147,19 +147,20 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
             viewModelScope.launch {
                 try {
-                    llamaAndroid.send(llamaAndroid.getTemplate(messages))
+                    val templateMessages = templateFilteredMessages()
+                    var thinkBuffer = ""
+                    var isInThinkBlock = false
+                    llamaAndroid.send(llamaAndroid.getTemplate(templateMessages))
                         .catch {
                             Log.e(tag, "send() failed", it)
                             addMessage("error", it.message ?: "")
                         }
                         .collect { response ->
-                            // Create a new assistant message with the response
-                            if (getIsMarked()) {
-                                addMessage("codeBlock", response)
-                            } else {
-                                addMessage("assistant", response)
-                            }
+                            routeResponse(response, { thinkBuffer }, { thinkBuffer = it }, { isInThinkBlock }, { isInThinkBlock = it })
                         }
+                    if (thinkBuffer.isNotEmpty()) {
+                        addMessage(if (isInThinkBlock) "thinking" else if (getIsMarked()) "codeBlock" else "assistant", thinkBuffer)
+                    }
                 } finally {
                     if (!getIsCompleteEOT()) {
                         trimEOT()
@@ -412,32 +413,29 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
 
             viewModelScope.launch {
                 try {
-                    val prompt = llamaAndroid.getTemplate(messages)
+                    val templateMessages = templateFilteredMessages()
+                    val prompt = llamaAndroid.getTemplate(templateMessages)
                     Log.d("Messages", messages.toString())
                     Log.d("Prompt", prompt)
-                    llamaAndroid.send(llamaAndroid.getTemplate(messages))
+                    var thinkBuffer = ""
+                    var isInThinkBlock = false
+                    llamaAndroid.send(prompt)
                         .catch {
                             Log.e(tag, "send() failed", it)
                             addMessage("error", it.message ?: "")
                         }
                         .collect { response ->
-                            // Create a new assistant message with the response
-                            if (getIsMarked()) {
-                                addMessage("codeBlock", response)
-
-                            } else {
-                                addMessage("assistant", response)
-                            }
+                            routeResponse(response, { thinkBuffer }, { thinkBuffer = it }, { isInThinkBlock }, { isInThinkBlock = it })
                         }
+                    if (thinkBuffer.isNotEmpty()) {
+                        addMessage(if (isInThinkBlock) "thinking" else if (getIsMarked()) "codeBlock" else "assistant", thinkBuffer)
+                    }
                 }
                 finally {
                     if (!getIsCompleteEOT()) {
                         trimEOT()
                     }
                 }
-
-
-
             }
         }
 
@@ -606,6 +604,59 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
             set(messages.lastIndex, updatedLastMessage)
         }
         messages.last()["content"]?.let { Log.e(tag, it) }
+    }
+
+    /**
+     * Returns messages suitable for passing to the LLM template — strips "thinking", "error",
+     * and normalises "codeBlock" back to "assistant" so the model doesn't see implementation
+     * details of the UI's message roles.
+     */
+    private fun templateFilteredMessages(): List<Map<String, String>> {
+        return messages
+            .filter { it["role"] !in listOf("thinking", "error") }
+            .map { if (it["role"] == "codeBlock") it + ("role" to "assistant") else it }
+    }
+
+    /**
+     * Routes a streaming [token] into the correct message role, detecting `<think>` / `</think>`
+     * tags to separate reasoning chains from the visible response.
+     *
+     * [getBuffer] / [setBuffer] provide access to the caller's pending-emit buffer so that tags
+     * split across multiple tokens are still detected correctly.
+     * [getInThink] / [setInThink] track whether we are currently inside a `<think>` block.
+     */
+    private fun routeResponse(
+        token: String,
+        getBuffer: () -> String,
+        setBuffer: (String) -> Unit,
+        getInThink: () -> Boolean,
+        setInThink: (Boolean) -> Unit,
+    ) {
+        var pending = getBuffer() + token
+        var processed = true
+        while (processed) {
+            processed = false
+            val tag = if (getInThink()) "</think>" else "<think>"
+            val tagIdx = pending.indexOf(tag)
+            if (tagIdx >= 0) {
+                val before = pending.substring(0, tagIdx)
+                if (before.isNotEmpty()) {
+                    addMessage(if (getInThink()) "thinking" else if (getIsMarked()) "codeBlock" else "assistant", before)
+                }
+                setInThink(!getInThink())
+                pending = pending.substring(tagIdx + tag.length)
+                processed = pending.isNotEmpty()
+            } else {
+                // Keep the last (tag.length - 1) chars buffered in case the tag is split
+                val safeLen = pending.length - (tag.length - 1)
+                if (safeLen > 0) {
+                    val safeContent = pending.substring(0, safeLen)
+                    addMessage(if (getInThink()) "thinking" else if (getIsMarked()) "codeBlock" else "assistant", safeContent)
+                    pending = pending.substring(safeLen)
+                }
+            }
+        }
+        setBuffer(pending)
     }
 
     private fun removeExtraWhiteSpaces(input: String): String {

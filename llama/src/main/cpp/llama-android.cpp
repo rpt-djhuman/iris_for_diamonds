@@ -356,61 +356,16 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
 extern "C"
 JNIEXPORT jlong JNICALL
 Java_android_llama_cpp_LLamaAndroid_new_1batch(JNIEnv *, jobject, jint n_tokens, jint embd, jint n_seq_max) {
-
-    // Source: Copy of llama.cpp:llama_batch_init but heap-allocated.
-
-    llama_batch *batch = new llama_batch {
-        0,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-        nullptr,
-    };
-
-    if (embd) {
-        batch->embd = (float *) malloc(sizeof(float) * n_tokens * embd);
-    } else {
-        batch->token = (llama_token *) malloc(sizeof(llama_token) * n_tokens);
-    }
-
-    batch->pos      = (llama_pos *)     malloc(sizeof(llama_pos)      * n_tokens);
-    batch->n_seq_id = (int32_t *)       malloc(sizeof(int32_t)        * n_tokens);
-    batch->seq_id   = (llama_seq_id **) malloc(sizeof(llama_seq_id *) * n_tokens);
-    for (int i = 0; i < n_tokens; ++i) {
-        batch->seq_id[i] = (llama_seq_id *) malloc(sizeof(llama_seq_id) * n_seq_max);
-    }
-    batch->logits   = (int8_t *)        malloc(sizeof(int8_t)         * n_tokens);
-
+    llama_batch *batch = new llama_batch(llama_batch_init(n_tokens, embd, n_seq_max));
     return reinterpret_cast<jlong>(batch);
 }
-
-void fixed_llama_batch_free(struct llama_batch batch) {
-    if (batch.token)    free(batch.token);
-    if (batch.embd)     free(batch.embd);
-    if (batch.pos)      free(batch.pos);
-
-    if (batch.seq_id) {
-        for (int i = 0; i < *batch.n_seq_id; ++i) {
-            free(batch.seq_id[i]);
-        }
-        if (batch.n_seq_id) free(batch.n_seq_id);
-        free(batch.seq_id);
-    }
-    if (batch.logits)   free(batch.logits);
-}
-
 
 extern "C"
 JNIEXPORT void JNICALL
 Java_android_llama_cpp_LLamaAndroid_free_1batch(JNIEnv *, jobject, jlong batch_pointer) {
-
-
-    common_batch_clear(*reinterpret_cast<llama_batch *>(batch_pointer));
-
-//    fixed_llama_batch_free(*reinterpret_cast<llama_batch *>(batch_pointer));
-
+    llama_batch *batch = reinterpret_cast<llama_batch *>(batch_pointer);
+    llama_batch_free(*batch);
+    delete batch;
 }
 
 extern "C"
