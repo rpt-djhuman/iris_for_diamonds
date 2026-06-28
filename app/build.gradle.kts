@@ -3,6 +3,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Mirror of the :llama KleidiAI toggle so the running app can report which
+// variant it is. Build with -Pkleidiai=true for the KleidiAI-enabled APK.
+val kleidiAiEnabled = (project.findProperty("kleidiai") as? String)?.toBoolean() ?: false
+
 android {
     namespace = "com.nervesparks.iris"
     compileSdk = 35
@@ -24,6 +28,8 @@ android {
             // Add NDK properties if wanted, e.g.
             abiFilters += listOf("arm64-v8a")
         }
+
+        buildConfigField("boolean", "KLEIDIAI_ENABLED", kleidiAiEnabled.toString())
     }
 
     buildTypes {
@@ -45,6 +51,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.1"

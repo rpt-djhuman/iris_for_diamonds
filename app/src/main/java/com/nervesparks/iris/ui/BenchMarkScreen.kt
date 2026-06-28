@@ -26,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nervesparks.iris.BuildConfig
 import com.nervesparks.iris.MainViewModel
 import kotlinx.coroutines.launch
 import android.app.DownloadManager
@@ -978,6 +979,7 @@ private fun buildDeviceInfo(viewModel: MainViewModel): String {
         append("Android: ${Build.VERSION.RELEASE}\n")
         append("Processor: ${Build.HARDWARE}\n")
         append("Available Threads: ${Runtime.getRuntime().availableProcessors()}\n")
+        append("KleidiAI: ${if (BuildConfig.KLEIDIAI_ENABLED) "Enabled" else "Disabled"}\n")
         append("Current Model: ${viewModel.loadedModelName.value ?: "N/A"}\n")
         append("User Threads: ${viewModel.user_thread}")
     }

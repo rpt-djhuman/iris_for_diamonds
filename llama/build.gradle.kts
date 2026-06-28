@@ -3,6 +3,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// KleidiAI A/B toggle. Build with -Pkleidiai=true to compile ggml's KleidiAI
+// optimized ARM kernels (GGML_CPU_KLEIDIAI=ON); defaults OFF so the baseline
+// build is unchanged. Note: the ON build pulls KleidiAI sources via CMake
+// FetchContent on first configure, so it needs network access once.
+val kleidiAiEnabled = (project.findProperty("kleidiai") as? String)?.toBoolean() ?: false
+
 android {
     namespace = "android.llama.cpp"
     compileSdk = 35
@@ -20,6 +26,7 @@ android {
             cmake {
                 arguments += "-DLLAMA_BUILD_COMMON=ON"
                 arguments += "-DCMAKE_BUILD_TYPE=Release"
+                arguments += "-DGGML_CPU_KLEIDIAI=${if (kleidiAiEnabled) "ON" else "OFF"}"
                 cppFlags += listOf()
                 arguments += listOf()
 
