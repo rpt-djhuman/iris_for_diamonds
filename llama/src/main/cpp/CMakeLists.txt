@@ -5,33 +5,23 @@
 # Sets the minimum CMake version required for this project.
 cmake_minimum_required(VERSION 3.22.1)
 
-# Declares the project name. The project name can be accessed via ${ PROJECT_NAME},
-# Since this is the top level CMakeLists.txt, the project name is also accessible
-# with ${CMAKE_PROJECT_NAME} (both CMake variables are in-sync within the top level
-# build script scope).
 project("llama-android")
 
-#include(FetchContent)
-#FetchContent_Declare(
-#        llama
-#        GIT_REPOSITORY https://github.com/ggerganov/llama.cpp
-#        GIT_TAG        master
-#)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED true)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED true)
 
-# Also provides "common"
-#FetchContent_MakeAvailable(llama)
+# Tell ggml which CPU architecture we're targeting so it includes the right
+# optimised source files (arm/quants.c etc.) and sets correct compile flags.
+if(DEFINED ANDROID_ABI)
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        set(GGML_SYSTEM_ARCH "ARM")
+    elseif(ANDROID_ABI STREQUAL "x86_64")
+        set(GGML_SYSTEM_ARCH "x86")
+    endif()
+endif()
 
-# Creates and names a library, sets it as either STATIC
-# or SHARED, and provides the relative paths to its source code.
-# You can define multiple libraries, and CMake builds them for you.
-# Gradle automatically packages shared libraries with your APK.
-#
-# In this top level CMakeLists.txt, ${CMAKE_PROJECT_NAME} is used to define
-# the target library name; in the sub-module's CMakeLists.txt, ${PROJECT_NAME}
-# is preferred for the same purpose.
-#
-
-#load local llama.cpp
 add_subdirectory(../../../../../llama.cpp build-llama)
 
 # In order to load a library into your app from Java/Kotlin, you must call
@@ -41,6 +31,9 @@ add_subdirectory(../../../../../llama.cpp build-llama)
 add_library(${CMAKE_PROJECT_NAME} SHARED
         # List C/C++ source files with relative paths to this CMakeLists.txt.
         llama-android.cpp)
+
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE
+        ../../../../../llama.cpp/vendor/nlohmann)
 
 # Specifies libraries CMake should link to your target library. You
 # can link libraries from various origins, such as libraries defined in this
@@ -53,8 +46,8 @@ target_link_libraries(${CMAKE_PROJECT_NAME}
         log)
 if (${ANDROID_ABI} STREQUAL "arm64-v8a")
     message(STATUS "llama.android: Added optimizations for arm64-v8a")
-    add_compile_options(-O3 -mcpu=native -march=armv8.2-a+fp16 -mfpu=neon-v8fp16_va)
+    target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -O3 -march=armv8.2-a+fp16+dotprod)
 else()
-    message(STATUS "llama.android: No optimizations added")
-    add_compile_options(-O3 -mcpu=native)
+    message(STATUS "llama.android: No extra optimizations for ${ANDROID_ABI}")
+    target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE -O3)
 endif()

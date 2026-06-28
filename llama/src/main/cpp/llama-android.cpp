@@ -278,7 +278,7 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
         }
 
         batch->logits[batch->n_tokens - 1] = true;
-        llama_kv_self_clear(context);
+        llama_memory_clear(llama_get_memory(context), true);
 
         const auto t_pp_start = ggml_time_us();
         if (llama_decode(context, *batch) != 0) {
@@ -290,7 +290,7 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
 
         LOGi("Benchmark text generation (tg)");
 
-        llama_kv_self_clear(context);
+        llama_memory_clear(llama_get_memory(context), true);
         const auto t_tg_start = ggml_time_us();
         for (i = 0; i < tg; i++) {
 
@@ -307,7 +307,7 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
 
         const auto t_tg_end = ggml_time_us();
 
-        llama_kv_self_clear(context);
+        llama_memory_clear(llama_get_memory(context), true);
 
         const auto t_pp = double(t_pp_end - t_pp_start) / 1000000.0;
         const auto t_tg = double(t_tg_end - t_tg_start) / 1000000.0;
@@ -537,7 +537,7 @@ Java_android_llama_cpp_LLamaAndroid_completion_1loop(
 extern "C"
 JNIEXPORT void JNICALL
 Java_android_llama_cpp_LLamaAndroid_kv_1cache_1clear(JNIEnv *, jobject, jlong context) {
-    llama_kv_self_clear(reinterpret_cast<llama_context *>(context));
+    llama_memory_clear(llama_get_memory(reinterpret_cast<llama_context *>(context)), true);
 }
 
 // Format given chat. If tmpl is empty, we take the template from model metadata
