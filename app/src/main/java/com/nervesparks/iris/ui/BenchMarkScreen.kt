@@ -96,7 +96,7 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
     }
 
 // Add this near the top of the BenchMarkScreen composable function
-    LaunchedEffect(viewModel.modelLoadMemoryImpact, viewModel.modelLoadTime, viewModel.isBenchmarkingComplete) {
+    LaunchedEffect(viewModel.benchmarkStage, viewModel.modelLoadMemoryImpact, viewModel.modelLoadTime, viewModel.isBenchmarkingComplete) {
         modelLoadMemoryImpact = viewModel.modelLoadMemoryImpact
         modelLoadTime = viewModel.modelLoadTime
         benchmarkStage = viewModel.benchmarkStage
