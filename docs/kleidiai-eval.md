@@ -46,32 +46,64 @@ export JAVA_HOME=/home/dirk/android-studio/jbr   # AGP needs JDK 17+ (system def
 - Device plugged in (or same battery band) and thermally settled between runs.
 - Note the quant type of the model under test.
 
-## Run log
+## Important: what "enabled vs disabled" means (per ARM)
 
-Model under test: **Llama-3.2-1B-Instruct-Q4_0** (Q4_0 — the KleidiAI-accelerated quant). Device: **SM-S928B (Galaxy S24 Ultra, Snapdragon 8 Gen 3)**, arm64-v8a, CPU features include `dotprod` + `i8mm` + `bf16`. 3 runs per side; the app's comprehensive benchmark measures **token generation** throughput (not prompt/prefill). Builds: CMake 3.31.6, NDK 26.1, Release.
+ARM's own profiling guide (`profiling_ext.md`) defines the intended comparison as
+**SME2 on vs off at runtime** (`GGML_KLEIDIAI_SME=0` vs `=1`) on a *single*
+KleidiAI-enabled `llama-server` binary built with
+`-DGGML_CPU_ARM_ARCH=armv9.2-a+dotprod+i8mm+sve2+sme2` — **not** KleidiAI compiled
+in vs out. KleidiAI's headline advantage is its **SME2** kernels.
 
-| Date | Device | Model quant | KleidiAI | Load (ms) | tg tok/s (r1/r2/r3) | Median tok/s | Mean tok/s |
-|------|--------|-------------|----------|-----------|---------------------|--------------|------------|
-| 2026-07-03 | SM-S928B | Q4_0 | OFF | ~772 | 27.14 / 21.20 / 22.42 | 22.42 | 23.59 |
-| 2026-07-03 | SM-S928B | Q4_0 | ON  | ~783 | 28.86 / 22.57 / 24.76 | 24.76 | 25.40 |
+**The SM-S928B (Galaxy S24 Ultra, Snapdragon 8 Gen 3) has no SME2** (CPU features:
+`...asimddp ... i8mm bf16 ...`; no `sme`/`sve`). So KleidiAI's differentiating path
+cannot run on this device — it falls back to i8mm, which is the same math ggml's own
+kernels use. A meaningful KleidiAI eval needs an **SME2-capable SoC** (Armv9.2 + SME2,
+e.g. Snapdragon 8 Elite Cortex-X925/A725, or MediaTek Dimensity 9400).
 
-**Delta (ON vs OFF): +10.4% median, +7.7% mean** token generation. Load time unchanged. Wide run-to-run variance (thermal/scheduling) — distributions overlap.
+## Run log — Q4_0, SM-S928B, CMake 3.31.6 / NDK 26.1 / Release
+
+All rows below use `-DGGML_CPU_ARM_ARCH=armv8.2-a+fp16+dotprod+i8mm` (i8mm active).
+pp/tg from the native `bench_model` harness (pp=512, tg=128, 3 reps), measured cold.
+
+| KleidiAI | pp t/s (r1/r2/r3) | tg t/s (r1/r2/r3) | gen avg | mem impact | peak mem |
+|----------|-------------------|-------------------|---------|-----------|----------|
+| ON (i8mm + KleidiAI) | 239.6 / 285.9 / 302.4 | 35.3 / 40.7 / 43.0 | ~32.5 | ~1586 MB | ~1830 MB |
+| OFF (i8mm, ggml only) | 299.2 / 166.4* / 316.7 | 43.1 / 22.8* / 44.7 | ~33 | ~1592 MB | ~1823 MB |
+
+\* the 12:07 OFF run is a thermal outlier (pp/tg/gen all depressed together) — excluded from medians.
+
+**ON vs OFF (clean-run medians): pp ~286 vs ~308, tg ~41 vs ~44 — no KleidiAI advantage** (OFF a hair faster, within the ±15–35% run-to-run noise). Confirmed KleidiAI *was* active on ON via logcat: `primary q4 kernel feature I8MM`, `CPU_KLEIDIAI model buffer size = 504 MiB`. So this is a genuine null result, not an inactive build.
+
+## The bigger finding: the app's ggml build was missing dotprod/i8mm
+
+Until the `GGML_CPU_ARM_ARCH` fix, ggml-cpu cross-compiled at the NDK default
+**`armv8-a`** — no dotprod, no i8mm — so *every* build (KleidiAI on and off) ran
+plain-NEON kernels. Logcat before the fix: `CPU : NEON=1 | ARM_FMA=1 ...` (no
+DOTPROD/MATMUL_INT8) and `kleidiai: ... CPU features mask 0`. Adding
+`-DGGML_CPU_ARM_ARCH=armv8.2-a+fp16+dotprod+i8mm` gave a large speedup on the same
+device, **independent of KleidiAI**:
+
+| Metric | armv8-a (before) | +dotprod+i8mm (after) | gain |
+|--------|------------------|-----------------------|------|
+| pp (prefill) | ~53 t/s | ~300 t/s | **~5.7×** |
+| tg (generation) | ~26 t/s | ~43 t/s | ~1.6× |
+| mem impact | ~900 MB | ~1590 MB | +~700 MB |
+
+The extra ~700 MB is the **weight-repacking cost** (ggml `CPU_REPACK` + KleidiAI
+`CPU_KLEIDIAI` buffers hold repacked copies of the Q4_0 weights) — the RAM-for-speed
+tradeoff that comes with the i8mm path.
 
 ## Result summary
 
-- **tg (token generation) speedup, ON vs OFF:** +10.4% median (+7.7% mean).
-- **pp (prompt processing) speedup, ON vs OFF:** not measured — the app's comprehensive benchmark reports generation only. KleidiAI's largest wins are on prefill/GEMM, so this is expected to be higher; see follow-up.
-- **Memory / thermal / battery delta:** load time and memory effectively unchanged (KleidiAI is compute-side, not load/alloc).
-- **Model quant tested + whether KleidiAI engaged it:** Q4_0 on SD8Gen3 (dotprod + i8mm present) — KleidiAI's Q4_0 packing ukernels compiled and linked in, so it engaged.
+- **KleidiAI (on/off), Q4_0, SD8Gen3:** no measurable difference — KleidiAI ≈ ggml i8mm.
+- **Why:** this device has no SME2, which is KleidiAI's real differentiator; without it, KleidiAI runs the same i8mm math as ggml.
+- **Bonus (bigger) finding:** the app shipped a non-optimized ggml build (armv8-a); enabling dotprod/i8mm gives ~5.7× prefill and ~1.6× generation on any modern Android CPU, at +~700 MB RAM.
 
 ## Conclusion / recommendation
 
-KleidiAI gives a **real but modest (~+8–10%) token-generation speedup** on Q4_0 on the S24 Ultra, at zero cost to load time/memory and no code changes beyond the build toggle. Token generation is GEMV-bound (memory bandwidth), which is the case KleidiAI helps *least* — the headline number understates the benefit.
-
-Recommendation: **worth enabling** for on-device CPU inference on Q4_0 models. Before a ship decision, close two gaps:
-1. **Measure prompt processing / prefill separately** (the `bench_model` JNI path exposes pp vs tg) — this is where KleidiAI should show a materially larger gain and matters for long-context/RAG prompts.
-2. **Re-run with more iterations** (5–10) and controlled thermals to tighten the wide variance seen here.
-Also worth checking a larger model and the real Diamonds GGUF (confirm its quant is KleidiAI-compatible).
+1. **KleidiAI is not worth enabling for Q4_0 on current Snapdragon (SD8Gen3)** — no gain over ggml's own i8mm kernels. Re-evaluate only on **SME2-capable hardware**, using ARM's `GGML_KLEIDIAI_SME=0/1` `llama-server` flow with a `+sve2+sme2` build.
+2. **Do enable `GGML_CPU_ARM_ARCH` (dotprod+i8mm) in the Iris ggml build regardless** — it is a large, free speedup for all users. For broad device coverage use **`GGML_CPU_ALL_VARIANTS`** (runtime ISA dispatch) rather than hard-compiling `+i8mm`, which would SIGILL on pre-i8mm CPUs. Budget ~+700 MB RAM for the repacked weights.
+3. Follow-ups: source an SME2 device for the true KleidiAI test; sanity-check the real Diamonds GGUF quant; more reps + thermal control to tighten variance.
 
 ---
 Reports back to Night Shift action item: *Evaluate KleidiAI on RPL workloads with llama.cpp (enabled vs disabled)*.
