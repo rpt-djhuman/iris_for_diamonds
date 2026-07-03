@@ -88,18 +88,20 @@ On opening the app, users can download suggested models to optimize performance 
  git clone https://github.com/nerve-sparks/iris_android.git
 ```
 
-- Clone the llama.cpp repository in the same folder as iris_android
+- Clone llama.cpp as a **sibling folder** of this repo (the native build references it via `../llama.cpp`):
 
 ```bash
- git clone https://github.com/ggerganov/llama.cpp
+ git clone https://github.com/ggml-org/llama.cpp
 ```
-- Navigate to the llama.cpp directory and checkout a specific commit for proper compatibility:
 
-```bash
-cd llama.cpp
-git checkout 1f922254f0c984a8fb9fbaa0c390d7ffae49aedb
-cd ..
-```
+  This fork tracks **recent mainline** llama.cpp — it uses the current `llama_memory_*` API and vendors ARM KleidiAI (v1.22.0). The old pinned commit no longer applies; validated against mainline as of mid-2026.
+
+- Install the required build tools via Android Studio's **SDK Manager** (SDK Tools → enable "Show Package Details"):
+  - **NDK 26.1.10909125**
+  - **CMake 3.31.6** — the NDK-bundled CMake 3.22.1 is too old and fails on KleidiAI's download step. The build is pinned to 3.31.6 in `llama/build.gradle.kts`.
+
+  (Gradle runs under JDK 17+; Android Studio's bundled JBR satisfies this.)
+
 - Open developer options on the Android mobile phone.
 - Enable developer options.
 - Click on developer options and enable wireless debugging.
@@ -110,6 +112,21 @@ cd ..
 - Once the phone is connected, select the device name in the drop down menu and click on play button.
 - In the app, download at least one model from the given options.
 - Now you can run the app offline. (In airplane mode as well)
+
+## Performance & build configuration
+
+Iris runs models on the CPU via llama.cpp. Two build knobs control on-device speed:
+
+- **Optimized ARM kernels (default).** The `:llama` module builds every ARM ISA tier as a separate backend (`GGML_CPU_ALL_VARIANTS`) and picks the best at runtime — `dotprod` + `i8mm` on capable chips, with a safe fallback on older ones (no `SIGILL`). On a Snapdragon 8 Gen 3 this is roughly **5.7× faster prompt processing and 1.6× faster generation** than a plain `armv8-a` build, costing ~+700 MB RAM for repacked weights. No device-specific setup required.
+- **ARM KleidiAI (optional, off by default).** Build with `-Pkleidiai=true` to compile in ARM's KleidiAI kernels:
+
+  ```bash
+  ./gradlew :app:assembleRelease -Pkleidiai=true
+  ```
+
+  On current Snapdragon (i8mm, no SME2) KleidiAI matches ggml's own i8mm kernels — no measurable gain — so it stays off by default. Its real advantage is SME2, which needs newer silicon (Snapdragon 8 Elite / MediaTek Dimensity 9400). See [`docs/kleidiai-eval.md`](docs/kleidiai-eval.md) for the full enabled-vs-disabled evaluation and an SME2 profiling runbook.
+
+**Benchmarking.** The in-app **Benchmark** screen measures prompt-processing (pp) and token-generation (tg) throughput, model load time, memory, and battery, and exports a CSV self-labeled with the build's KleidiAI state.
 
 ## Contributing
 
