@@ -444,6 +444,8 @@ fun BenchMarkScreen(viewModel: MainViewModel, dm: DownloadManager, extFileDir: F
                         Spacer(modifier = Modifier.height(8.dp))
                         Text("Total tokens generated: ${safeFormatDouble(viewModel.tokensList.size.toDouble())}", color = Color.White)
                         Text("Tokens per second: ${safeFormatDouble(viewModel.tokensPerSecondsFinal)}", color = Color.White)
+                        Text("Prompt processing (pp): ${safeFormatDouble(viewModel.ppTokensPerSecond)} t/s", color = Color.White)
+                        Text("Token generation (tg): ${safeFormatDouble(viewModel.tgTokensPerSecond)} t/s", color = Color.White)
                         Text("CPU usage: ${safeFormatDouble(viewModel.averageResourceMetrics.cpuUsage.toDouble())}%", color = Color.White)
                         Text("Peak memory: ${viewModel.peakMemoryUsage.toInt()} MB", color = Color.White)
                     }
@@ -1010,6 +1012,8 @@ private fun generateBenchmarkCsv(
     sb.appendLine("Average Tokens/s,${String.format(Locale.US, "%.2f", benchmarkStats.average)}")
     sb.appendLine("1% Low Tokens/s,${String.format(Locale.US, "%.2f", benchmarkStats.onePctLow)}")
     sb.appendLine("1% High Tokens/s,${String.format(Locale.US, "%.2f", benchmarkStats.onePctHigh)}")
+    sb.appendLine("Prompt Processing pp (t/s),${String.format(Locale.US, "%.2f", viewModel.ppTokensPerSecond)}")
+    sb.appendLine("Token Generation tg (t/s),${String.format(Locale.US, "%.2f", viewModel.tgTokensPerSecond)}")
     sb.appendLine("Total Tokens,${viewModel.tokensList.size}")
     sb.appendLine()
 

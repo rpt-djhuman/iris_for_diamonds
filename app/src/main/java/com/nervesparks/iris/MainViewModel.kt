@@ -477,6 +477,31 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
     var tokensPerSecondsFinal: Double by mutableStateOf(0.0) // Track tokens per second and trigger UI updates
     var isBenchmarkingComplete by mutableStateOf(false) // Flag to track if benchmarking is complete
 
+    // Prompt-processing (prefill) and token-generation throughput from the native
+    // bench_model harness. pp is GEMM-heavy and is where KleidiAI helps most, so it
+    // is reported separately from the generation loop above (tokensPerSecondsFinal).
+    var ppTokensPerSecond: Double by mutableStateOf(0.0)
+    var tgTokensPerSecond: Double by mutableStateOf(0.0)
+
+    // Parse the markdown table returned by LLamaAndroid.bench(): rows look like
+    // "| <model> | <size> | <params> | <backend> | pp 512 | 123.4 ± 5.6 |".
+    private fun parseBenchTable(md: String): Pair<Double, Double> {
+        var pp = 0.0
+        var tg = 0.0
+        md.lines().forEach { line ->
+            val cols = line.split("|").map { it.trim() }
+            if (cols.size >= 7) {
+                val test = cols[5]
+                val value = cols[6].substringBefore("±").trim().toDoubleOrNull()
+                if (value != null) {
+                    if (test.startsWith("pp")) pp = value
+                    else if (test.startsWith("tg")) tg = value
+                }
+            }
+        }
+        return pp to tg
+    }
+
     fun myCustomBenchmark() {
         viewModelScope.launch {
             try {
@@ -834,6 +859,19 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                             }
                         }
 
+                    // 5. Prompt-processing / prefill throughput via the native bench harness.
+                    // pp=512 prompt tokens, tg=128 generated, 3 repetitions.
+                    benchmarkStage = "Measuring prompt processing"
+                    try {
+                        val benchTable = llamaAndroid.bench(512, 128, 1, 3)
+                        val (pp, tg) = parseBenchTable(benchTable)
+                        ppTokensPerSecond = pp
+                        tgTokensPerSecond = tg
+                        Log.d("Benchmark", "pp: $pp t/s, tg: $tg t/s")
+                    } catch (e: Exception) {
+                        Log.e("Benchmark", "Prompt-processing benchmark failed: ${e.message}")
+                    }
+
                     benchmarkStage = "Completed"
                 } else {
                     benchmarkStage = "Error: Model path is null"
@@ -874,6 +912,8 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
         peakMemoryUsage = 0f
         modelMemoryImpact = 0f
         tokensPerSecondsFinal = 0.0
+        ppTokensPerSecond = 0.0
+        tgTokensPerSecond = 0.0
 
         // Clear collections
         resourceMetricsList.clear()
