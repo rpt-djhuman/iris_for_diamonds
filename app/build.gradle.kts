@@ -60,6 +60,11 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs {
+            // Extract native libs on install so ggml's backend loader can enumerate
+            // the dlopen-able CPU variant .so files by directory (GGML_BACKEND_DL).
+            useLegacyPackaging = true
+        }
     }
 //    externalNativeBuild {
 //        cmake {

@@ -102,7 +102,7 @@ tradeoff that comes with the i8mm path.
 ## Conclusion / recommendation
 
 1. **KleidiAI is not worth enabling for Q4_0 on current Snapdragon (SD8Gen3)** — no gain over ggml's own i8mm kernels. Re-evaluate only on **SME2-capable hardware**, using ARM's `GGML_KLEIDIAI_SME=0/1` `llama-server` flow with a `+sve2+sme2` build.
-2. **Do enable `GGML_CPU_ARM_ARCH` (dotprod+i8mm) in the Iris ggml build regardless** — it is a large, free speedup for all users. For broad device coverage use **`GGML_CPU_ALL_VARIANTS`** (runtime ISA dispatch) rather than hard-compiling `+i8mm`, which would SIGILL on pre-i8mm CPUs. Budget ~+700 MB RAM for the repacked weights.
+2. **Ship the optimized-ISA build — done, via `GGML_CPU_ALL_VARIANTS`.** The build now compiles every ARM ISA tier (`armv8.0` … `armv8.2+dotprod` … `armv8.6+i8mm` … `armv9.2+sme`) as separate dlopen-able backends (`GGML_BACKEND_DL` + shared libs) and selects the best at runtime. Verified on the S24 Ultra: it auto-loads `libggml-cpu-android_armv8.6_1.so` (i8mm), matches the hard-pinned build (pp ≈ 301, tg ≈ 46 t/s) with no dispatch cost, and falls back safely on pre-i8mm CPUs — **no SIGILL**. Requires `.so` extraction (`packaging { jniLibs { useLegacyPackaging = true } }`) and a startup `ggml_backend_load_all_from_path()` pointed at the app lib dir (found via `dladdr`). Budget ~+700 MB RAM for the repacked weights.
 3. Follow-ups: source an SME2 device for the true KleidiAI test; sanity-check the real Diamonds GGUF quant; more reps + thermal control to tighten variance.
 
 ---

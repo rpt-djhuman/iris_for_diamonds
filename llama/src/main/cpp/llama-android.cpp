@@ -4,8 +4,10 @@
 #include <math.h>
 #include <string>
 #include <unistd.h>
+#include <dlfcn.h>
 #include "llama.h"
 #include "common.h"
+#include "ggml-backend.h"
 #define JSON_ASSERT GGML_ASSERT
 #include "json.hpp"
 
@@ -417,6 +419,28 @@ Java_android_llama_cpp_LLamaAndroid_free_1sampler(JNIEnv *, jobject, jlong sampl
 extern "C"
 JNIEXPORT void JNICALL
 Java_android_llama_cpp_LLamaAndroid_backend_1init(JNIEnv *, jobject) {
+    // With GGML_BACKEND_DL the CPU backend variants (libggml-cpu-android_*.so) are
+    // separate libraries loaded at runtime. ggml_backend_load_all() defaults to the
+    // executable dir / cwd, which on Android is not where our libs live — so point it
+    // at this library's own directory, discovered via dladdr. Requires the .so files
+    // to be extracted on install (packaging { jniLibs { useLegacyPackaging = true } }).
+    Dl_info info;
+    std::string lib_dir;
+    if (dladdr(reinterpret_cast<void *>(&Java_android_llama_cpp_LLamaAndroid_backend_1init), &info)
+        && info.dli_fname != nullptr) {
+        const std::string path = info.dli_fname;
+        const auto slash = path.find_last_of('/');
+        if (slash != std::string::npos) {
+            lib_dir = path.substr(0, slash);
+        }
+    }
+    if (!lib_dir.empty()) {
+        LOGi("Loading ggml backend variants from %s", lib_dir.c_str());
+        ggml_backend_load_all_from_path(lib_dir.c_str());
+    } else {
+        LOGe("backend dir not found via dladdr; falling back to default search");
+        ggml_backend_load_all();
+    }
     llama_backend_init();
 }
 
