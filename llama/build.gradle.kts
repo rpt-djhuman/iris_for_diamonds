@@ -47,7 +47,9 @@ android {
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            // 3.31.x needed for KleidiAI's FetchContent (DOWNLOAD_EXTRACT_TIMESTAMP,
+            // introduced in CMake 3.24); the NDK-bundled 3.22.1 is too old.
+            version = "3.31.6"
         }
     }
     compileOptions {
