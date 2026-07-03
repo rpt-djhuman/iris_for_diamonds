@@ -144,7 +144,3 @@ Iris runs models on the CPU via llama.cpp. Two build knobs control on-device spe
    git push origin my-new-feature
    ```
 5. **Open a Pull Request.**
-
-## Maintained by Nerve Sparks
-
-- Visit www.nervesparks.com to contact us.
