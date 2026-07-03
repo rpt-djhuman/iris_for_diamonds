@@ -1,4 +1,4 @@
-<h2><a href="https://play.google.com/store/apps/details?id=com.nervesparks.irisGPT&hl=en_IN"  style="color: white;">Iris</a></h2>
+# Iris
 
 ## Project Description
 
@@ -6,45 +6,9 @@
 - The app supports downloading GGUF models from Hugging Face and offers customizable parameters for flexible use.
 - Being open-source, it allows for easy modifications and improvements, providing a secure, private, and fully offline experience.
 
-## Images
+## Install
 
-<div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
-  <div style="text-align: center; width: 200px;">
-    <img src="./images/main_screen.png" alt="Main Screen Screenshot" width="200">
-    <p><strong>Main Screen</strong></p>
-    <p>This is the main interface of the app where users can access all core functionalities.</p>
-  </div>
-  <div style="text-align: center; width: 200px;">
-    <img src="./images/chat_screen.png" alt="Chat Screen Screenshot" width="200">
-    <p><strong>Chat Screen</strong></p>
-    <p>The chat feature allows users to interact in real-time and access AI-driven responses.</p>
-  </div>
-  <div style="text-align: center; width: 200px;">
-    <img src="./images/settings_screen.png" alt="Settings Screen Screenshot" width="200">
-    <p><strong>Settings Screen</strong></p>
-    <p>Users can customize app preferences and configure their account settings here.</p>
-  </div>
-  <div style="text-align: center; width: 200px;">
-    <img src="./images/models_screen.png" alt="Models Screen Screenshot" width="200">
-    <p><strong>Models Screen</strong></p>
-    <p>This screen displays available AI models and allows users to manage them efficiently.</p>
-  </div>
-  <div style="text-align: center; width: 200px;">
-    <img src="./images/parameters_screen.png" alt="Parameters Screen Screenshot" width="200">
-    <p><strong>Parameters Screen</strong></p>
-    <p>Users can adjust parameters to fine-tune the app's performance based on their needs.</p>
-  </div>
-</div>
-
-## Installation
-- Get IRIS (offline GPT) on Google Play:
-
-  [Get it on Google Play](https://play.google.com/store/apps/details?id=com.nervesparks.irisGPT&hl=en_IN)
-## Run
-
-- Go to releases : https://github.com/nerve-sparks/iris_android/releases
-- Download app
-- Install app
+This fork is built from source — see [Build](#build) below.
 
 ## Features
 
@@ -56,6 +20,10 @@
 - Text To Speech: Support for Text-to-Speech functionality.
 - Speech To Text: Support for Speech-to-Text functionality.
 - Default Model Selection: Set a default model to load automatically on startup.
+- Reasoning Support: Renders model "thinking"/reasoning tags separately from the final answer.
+- Prompt Templates: Save, load, and delete reusable prompt templates.
+- On-Device Benchmarking: Measure prompt-processing (pp) and generation (tg) throughput, model load time, memory, and battery; export results as CSV.
+- Optimized ARM CPU Kernels: Runtime dotprod/i8mm dispatch for faster inference on capable chips, with a safe fallback on older ones and an optional ARM KleidiAI build.
 
 ## Optimizing Your Experience with Iris
 
@@ -85,7 +53,7 @@ On opening the app, users can download suggested models to optimize performance 
 - Clone this repository and import into Android Studio
 
 ```bash
- git clone https://github.com/nerve-sparks/iris_android.git
+ git clone https://github.com/rpt-djhuman/iris_for_diamonds.git
 ```
 
 - Clone llama.cpp as a **sibling folder** of this repo (the native build references it via `../llama.cpp`):
