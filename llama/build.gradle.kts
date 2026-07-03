@@ -27,6 +27,14 @@ android {
                 arguments += "-DLLAMA_BUILD_COMMON=ON"
                 arguments += "-DCMAKE_BUILD_TYPE=Release"
                 arguments += "-DGGML_CPU_KLEIDIAI=${if (kleidiAiEnabled) "ON" else "OFF"}"
+                // Compile ggml-cpu for the target's actual ISA. Without this, ggml
+                // cross-compiles at the NDK default (armv8-a) — no dotprod/i8mm — so
+                // ggml's own kernels fall back to plain NEON AND KleidiAI sees a CPU
+                // feature mask of 0 and never activates. arm64-v8a targets here are
+                // dotprod+i8mm capable (e.g. SD8Gen3). NOTE: this hard-enables i8mm,
+                // so the resulting .so will SIGILL on a CPU lacking it — fine for this
+                // eval; for broad distribution use GGML_CPU_ALL_VARIANTS instead.
+                arguments += "-DGGML_CPU_ARM_ARCH=armv8.2-a+fp16+dotprod+i8mm"
                 cppFlags += listOf()
                 arguments += listOf()
 
