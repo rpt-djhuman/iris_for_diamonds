@@ -829,7 +829,7 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                     isBenchmarkingComplete = false
 
                     // Launch a coroutine to update metrics every second during inference
-                    launch {
+                    val inferenceMetricsJob = launch {
                         while (!isBenchmarkingComplete) {
                             delay(1000L)
                             val metrics = resourceMonitor.collectMetrics()
@@ -858,6 +858,16 @@ class MainViewModel(private val llamaAndroid: LLamaAndroid = LLamaAndroid.instan
                                 tokensList.add(emittedString)
                             }
                         }
+
+                    // Freeze the generation throughput now, then stop the live-metrics
+                    // loop. The pp measurement below does not emit into tokensList, so
+                    // if the loop kept running it would divide a frozen token count by a
+                    // growing elapsed time and decay tokensPerSecondsFinal toward zero.
+                    val generationElapsedMs = System.currentTimeMillis() - benchmarkStartTime
+                    if (generationElapsedMs > 0) {
+                        tokensPerSecondsFinal = tokensList.size.toDouble() / (generationElapsedMs / 1000.0)
+                    }
+                    inferenceMetricsJob.cancel()
 
                     // 5. Prompt-processing / prefill throughput via the native bench harness.
                     // pp=512 prompt tokens, tg=128 generated, 3 repetitions.
