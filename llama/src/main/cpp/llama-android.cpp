@@ -344,7 +344,9 @@ Java_android_llama_cpp_LLamaAndroid_bench_1model(
     const auto backend    = "(Android)"; // TODO: What should this be?
 
     std::stringstream result;
-    result << std::setprecision(2);
+    // std::fixed so setprecision(2) means 2 decimal places, not 2 significant
+    // figures — otherwise e.g. 35.72 t/s prints as "36", hiding the A/B delta.
+    result << std::fixed << std::setprecision(2);
     result << "| model | size | params | backend | test | t/s |\n";
     result << "| --- | --- | --- | --- | --- | --- |\n";
     result << "| " << model_desc << " | " << model_size << "GiB | " << model_n_params << "B | " << backend << " | pp " << pp << " | " << pp_avg << " ± " << pp_std << " |\n";
